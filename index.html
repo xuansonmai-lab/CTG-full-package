@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CTG Analyzer - Phân tích CTG đa chiều</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            display: flex;
+            min-height: 600px;
+        }
+        
+        .form-section {
+            flex: 1;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        
+        .results-section {
+            flex: 1;
+            padding: 30px;
+            background: white;
+            border-left: 3px solid #e9ecef;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .form-group h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+        }
+        
+        .sub-question {
+            margin-left: 20px;
+            margin-top: 15px;
+            padding: 15px;
+            background: #f1f3f4;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .radio-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .radio-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            background: #fff;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .radio-item:hover {
+            border-color: #3498db;
+            background: #f8f9fa;
+        }
+        
+        .radio-item input[type="radio"] {
+            margin-right: 8px;
+        }
+        
+        .radio-item.selected {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            background: #fff;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .checkbox-item:hover {
+            border-color: #3498db;
+            background: #f8f9fa;
+        }
+        
+        .checkbox-item input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        
+        .checkbox-item.selected {
+            background: #e8f4fd;
+            border-color: #3498db;
+        }
+        
+        .results-header {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3498db;
+        }
+        
+        .result-card {
+            margin-bottom: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .result-card h4 {
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .result-normal {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            color: white;
+        }
+        
+        .result-suspicious {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            color: white;
+        }
+        
+        .result-abnormal {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+        }
+        
+        .result-unclassified {
+            background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+            color: white;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .analyze-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+        
+        .analyze-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e9ecef;
+            border-radius: 3px;
+            margin-bottom: 20px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .radio-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>CTG Analyzer</h1>
+            <p>Phân tích CTG đa chiều theo các hiệp hội quốc tế</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="form-section">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                
+                <!-- Gò tử cung -->
+                <div class="form-group">
+                    <h3>1. Gò tử cung</h3>
+                    <div class="radio-group">
+                        <label class="radio-item">
+                            <input type="radio" name="uterine_contraction" value="normal" onchange="updateProgress()">
+                            < 5 cơn/10 phút
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="uterine_contraction" value="suspicious" onchange="updateProgress()">
+                            ≥ 5 cơn/10 phút
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="uterine_contraction" value="prolonged" onchange="updateProgress()">
+                            Cơn co kéo dài ≥ 2 phút
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Tim thai căn bản -->
+                <div class="form-group">
+                    <h3>2. Tim thai căn bản</h3>
+                    <div class="radio-group">
+                        <label class="radio-item">
+                            <input type="radio" name="baseline_fhr" value="<80" onchange="handleBaselineFHR(this)">
+                            < 80 bpm
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="baseline_fhr" value="80-100" onchange="handleBaselineFHR(this)">
+                            80-100 bpm
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="baseline_fhr" value="100-109" onchange="handleBaselineFHR(this)">
+                            100-109 bpm
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="baseline_fhr" value="110-160" onchange="handleBaselineFHR(this)">
+                            110-160 bpm
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="baseline_fhr" value="160-179" onchange="handleBaselineFHR(this)">
+                            160-179 bpm
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="baseline_fhr" value=">180" onchange="handleBaselineFHR(this)">
+                            > 180 bpm
+                        </label>
+                    </div>
+                    
+                    <div id="baseline_sub_questions" class="hidden">
+                        <!-- Sub questions sẽ được thêm vào đây -->
+                    </div>
+                </div>
+
+                <!-- Dao động nội tại -->
+                <div class="form-group">
+                    <h3>3. Dao động nội tại (Variability)</h3>
+                    <div class="radio-group">
+                        <label class="radio-item">
+                            <input type="radio" name="variability" value="undetectable" onchange="handleVariability(this)">
+                            Không phát hiện được (< 3 bpm)
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="variability" value="minimal" onchange="handleVariability(this)">
+                            Tối thiểu (3-5 bpm)
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="variability" value="moderate" onchange="handleVariability(this)">
+                            Trung bình (6-25 bpm)
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="variability" value="marked" onchange="handleVariability(this)">
+                            Tăng (> 25 bpm)
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="variability" value="sinusoidal" onchange="handleVariability(this)">
+                            Dạng hình sin
+                        </label>
+                    </div>
+                    
+                    <div id="variability_sub_questions" class="hidden">
+                        <!-- Sub questions sẽ được thêm vào đây -->
+                    </div>
+                </div>
+
+                <!-- Nhịp giảm -->
+                <div class="form-group">
+                    <h3>4. Nhịp giảm (Decelerations)</h3>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="deceleration" value="none" onchange="handleDeceleration(this)">
+                            Không có nhịp giảm
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="deceleration" value="early" onchange="handleDeceleration(this)">
+                            Nhịp giảm sớm
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="deceleration" value="variable" onchange="handleDeceleration(this)">
+                            Nhịp giảm bất định (biến đổi)
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="deceleration" value="late" onchange="handleDeceleration(this)">
+                            Nhịp giảm muộn
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="deceleration" value="prolonged" onchange="handleDeceleration(this)">
+                            Nhịp giảm kéo dài
+                        </label>
+                    </div>
+                    
+                    <div id="deceleration_sub_questions" class="hidden">
+                        <!-- Sub questions sẽ được thêm vào đây -->
+                    </div>
+                </div>
+
+                <!-- Nhịp tăng -->
+                <div class="form-group">
+                    <h3>5. Nhịp tăng (Accelerations)</h3>
+                    <div class="radio-group">
+                        <label class="radio-item">
+                            <input type="radio" name="acceleration" value="present" onchange="handleAcceleration(this)">
+                            Có nhịp tăng
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="acceleration" value="absent" onchange="handleAcceleration(this)">
+                            Không có nhịp tăng
+                        </label>
+                    </div>
+                    
+                    <div id="acceleration_sub_questions" class="hidden">
+                        <!-- Sub questions sẽ được thêm vào đây -->
+                    </div>
+                </div>
+
+                <button class="analyze-btn" onclick="analyzeResults()">Phân tích kết quả</button>
+            </div>
+            
+            <div class="results-section">
+                <h2 class="results-header">Kết quả phân tích</h2>
+                <div id="results_container">
+                    <p style="text-align: center; color: #7f8c8d; font-style: italic;">
+                        Vui lòng điền đầy đủ thông tin để xem kết quả phân tích
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let formData = {};
+        
+        function updateProgress() {
+            const totalQuestions = 5;
+            let completed = 0;
+            
+            if (document.querySelector('input[name="uterine_contraction"]:checked')) completed++;
+            if (document.querySelector('input[name="baseline_fhr"]:checked')) completed++;
+            if (document.querySelector('input[name="variability"]:checked')) completed++;
+            if (document.querySelector('input[name="deceleration"]:checked')) completed++;
+            if (document.querySelector('input[name="acceleration"]:checked')) completed++;
+            
+            const percentage = (completed / totalQuestions) * 100;
+            document.getElementById('progressFill').style.width = percentage + '%';
+        }
+        
+        function handleBaselineFHR(element) {
+            updateProgress();
+            const value = element.value;
+            const subContainer = document.getElementById('baseline_sub_questions');
+            
+            formData.baseline_fhr = value;
+            
+            let subHTML = '';
+            
+            if (value === '100-109') {
+                subHTML = `
+                    <div class="sub-question">
+                        <h4>Tim thai 100-109 bpm này:</h4>
+                        <div class="radio-group">
+                            <label class="radio-item">
+                                <input type="radio" name="baseline_100_109_type" value="new" onchange="formData.baseline_100_109_type = this.value">
+                                Mới xuất hiện (trước đó > 109 bpm)
+                            </label>
+                            <label class="radio-item">
+                                <input type="radio" name="baseline_100_109_type" value="existing" onchange="formData.baseline_100_109_type = this.value">
+                                Đã có từ trước (băng ghi trước cũng 100-109 bpm)
+                            </label>
+                        </div>
+                    </div>
+                `;
+            } else if (value === '110-160') {
+                subHTML = `
+                    <div class="sub-question">
+                        <h4>Tim thai có ổn định và phù hợp tuổi thai không?</h4>
+                        <div class="radio-group">
+                            <label class="radio-item">
+                                <input type="radio" name="baseline_stable" value="yes" onchange="formData.baseline_stable = this.value">
+                                Có - ổn định và phù hợp
+                            </label>
+                            <label class="radio-item">
+                                <input type="radio" name="baseline_stable" value="no" onchange="handleBaselineUnstable(this)">
+                                Không - có thay đổi
+                            </label>
+                        </div>
+                        <div id="baseline_unstable_sub" class="hidden">
+                            <!-- Sub questions cho trường hợp không ổn định -->
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (value === '160-179' || value === '>180') {
+                subHTML += `
+                    <div class="sub-question">
+                        <h4>Tăng tim thai này có:</h4>
+                        <div class="checkbox-group">
+                            <label class="checkbox-item">
+                                <input type="checkbox" name="baseline_increase_10" value="yes" onchange="formData.baseline_increase_10 = this.checked">
+                                Tăng > 10% so với băng ghi trước đó
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" name="baseline_increase_20" value="yes" onchange="formData.baseline_increase_20 = this.checked">
+                                Tăng ≥ 20 bpm so với băng ghi trước đó
+                            </label>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (subHTML) {
+                subContainer.innerHTML = subHTML;
+                subContainer.classList.remove('hidden');
+            } else {
+                subContainer.classList.add('hidden');
+            }
+        }
+        
+        function handleBaselineUnstable(element) {
+            const subContainer = document.getElementById('baseline_unstable_sub');
+            
+            const subHTML = `
+                <div class="sub-question">
+                    <h4>Loại thay đổi:</h4>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="baseline_increase_10_normal" value="yes" onchange="formData.baseline_increase_10_normal = this.checked">
+                            Tăng > 10% so với băng ghi trước đó
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="baseline_increase_20_normal" value="yes" onchange="formData.baseline_increase_20_normal = this.checked">
+                            Tăng ≥ 20 bpm so với băng ghi trước đó
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="baseline_unidentifiable" value="yes" onchange="formData.baseline_unidentifiable = this.checked">
+                            Không xác định được baseline
+                        </label>
+                    </div>
+                </div>
+            `;
+            
+            subContainer.innerHTML = subHTML;
+            subContainer.classList.remove('hidden');
+        }
+        
+        function handleVariability(element) {
+            updateProgress();
+            const value = element.value;
+            const subContainer = document.getElementById('variability_sub_questions');
+            
+            formData.variability = value;
+            
+            let subHTML = '';
+            
+            if (value === 'minimal') {
+                subHTML = `
+                    <div class="sub-question">
+                        <h4>Thời gian dao động < 5 bpm:</h4>
+                        <div class="radio-group">
+                            <label class="radio-item">
+                                <input type="radio" name="minimal_duration" value="30-50" onchange="formData.minimal_duration = this.value">
+                                30-50 phút
+                            </label>
+                            <label class="radio-item">
+                                <input type="radio" name="minimal_duration" value=">50" onchange="formData.minimal_duration = this.value">
+                                > 50 phút
+                            </label>
+                        </div>
+                    </div>
+                `;
+            } else if (value === 'marked') {
+                subHTML = `
+                    <div class="sub-question">
+                        <h4>Thời gian dao động > 25 bpm:</h4>
+                        <div class="radio-group">
+                            <label class="radio-item">
+                                <input type="radio" name="marked_duration" value="≤10" onchange="formData.marked_duration = this.value">
+                                ≤ 10 phút
+                            </label>
+                            <label class="radio-item">
+                                <input type="radio" name="marked_duration" value=">10" onchange="formData.marked_duration = this.value">
+                                > 10 phút
+                            </label>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (subHTML) {
+                subContainer.innerHTML = subHTML;
+                subContainer.classList.remove('hidden');
+            } else {
+                subContainer.classList.add('hidden');
+            }
+        }
+        
+        function handleDeceleration(element) {
+            updateProgress();
+            const value = element.value;
+            const subContainer = document.getElementById('deceleration_sub_questions');
+            
+            // Handle checkbox logic
+            if (element.checked) {
+                if (value === 'none') {
+                    // Uncheck all other decelerations if "none" is selected
+                    document.querySelectorAll('input[name="deceleration"]:not([value="none"])').forEach(cb => {
+                        cb.checked = false;
+                    });
+                } else {
+                    // Uncheck "none" if any other deceleration is selected
+                    document.querySelector('input[name="deceleration"][value="none"]').checked = false;
+                }
+            }
+            
+            // Collect all checked decelerations
+            const checkedDecelerations = Array.from(document.querySelectorAll('input[name="deceleration"]:checked'))
+                .map(cb => cb.value);
+            
+            formData.decelerations = checkedDecelerations;
+            
+            let subHTML = '';
+            
+            if (checkedDecelerations.includes('variable')) {
+                subHTML += `
+                    <div class="sub-question">
+                        <h4>Nhịp giảm bất định:</h4>
+                        <div class="radio-group">
+                            <label class="radio-item">
+                                <input type="radio" name="variable_severity" value="mild" onchange="handleVariableDeceleration(this)">
+                                Nhẹ
+                            </label>
+                            <label class="radio-item">
+                                <input type="radio" name="variable_severity" value="severe" onchange="handleVariableDeceleration(this)">
+                                Nặng (điểm thấp nhất < 70 bpm và > 30s hoặc 70-80 bpm và > 60s)
+                            </label>
+                        </div>
+                        <div id="variable_sub" class="hidden"></div>
+                    </div>
+                `;
+            }
+            
+            if (checkedDecelerations.includes('late')) {
+                subHTML += `
+                    <div class="sub-question">
+                        <h4>Nhịp giảm muộn:</h4>
+                        <div class="radio-group">
+                            <label class="radio-item">
+                                <input type="radio" name="late_severity" value="mild" onchange="formData.late_severity = this.value">
+                                Nhẹ
+                            </label>
+                            <label class="radio-item">
+                                <input type="radio" name="late_severity" value="severe" onchange="formData.late_severity = this.value">
+                                Nặng (> 15 bpm từ baseline)
+                            </label>
+                        </div>
+                        <div class="sub-question">
+                            <h4>Tính chất:</h4>
+                            <div class="radio-group">
+                                <label class="radio-item">
+                                    <input type="radio" name="late_repetitive" value="yes" onchange="handleLateRepetitive(this)">
+                                    Lặp lại
+                                </label>
+                                <label class="radio-item">
+                                    <input type="radio" name="late_repetitive" value="no" onchange="formData.late_repetitive = this.value">
+                                    Không lặp lại
+                                </label>
+                            </div>
+                            <div id="late_repetitive_sub" class="hidden"></div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (checkedDecelerations.includes('prolonged')) {
+                subHTML += `
+                    <div class="sub-question">
+                        <h4>Nhịp giảm kéo dài:</h4>
+                        <div class="radio-group">
+                            <label class="radio-item">
+                                <input type="radio" name="prolonged_severity" value="mild" onchange="formData.prolonged_severity = this.value">
+                                Nhẹ
+                            </label>
+                            <label class="radio-item">
+                                <input type="radio" name="prolonged_severity" value="severe" onchange="formData.prolonged_severity = this.value">
+                                Nặng (điểm thấp nhất < 80 bpm)
+                            </label>
+                        </div>
+                        <div class="sub-question">
+                            <h4>Thời gian:</h4>
+                            <div class="radio-group">
+                                <label class="radio-item">
+                                    <input type="radio" name="prolonged_duration" value="2-3" onchange="formData.prolonged_duration = this.value">
+                                    2-3 phút
+                                </label>
+                                <label class="radio-item">
+                                    <input type="radio" name="prolonged_duration" value=">3" onchange="formData.prolonged_duration = this.value">
+                                    > 3 phút
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Thêm câu hỏi về thời gian trong nhịp giảm vs baseline
+            if (checkedDecelerations.some(d => ['variable', 'late', 'prolonged'].includes(d))) {
+                subHTML += `
+                    <div class="sub-question">
+                        <h4>So sánh thời gian:</h4>
+                        <div class="radio-group">
+                            <label class="radio-item">
+                                <input type="radio" name="time_comparison" value="baseline_longer" onchange="formData.time_comparison = this.value">
+                                Thời gian ở tim thai căn bản dài hơn
+                            </label>
+                            <label class="radio-item">
+                                <input type="radio" name="time_comparison" value="deceleration_longer" onchange="formData.time_comparison = this.value">
+                                Thời gian trong nhịp giảm dài hơn
+                            </label>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (subHTML) {
+                subContainer.innerHTML = subHTML;
+                subContainer.classList.remove('hidden');
+            } else {
+                subContainer.classList.add('hidden');
+            }
+        }
+        
+        function handleVariableDeceleration(element) {
+            const value = element.value;
+            const subContainer = document.getElementById('variable_sub');
+            
+            formData.variable_severity = value;
+            
+            const subHTML = `
+                <div class="sub-question">
+                    <h4>Tính chất:</h4>
+                    <div class="radio-group">
+                        <label class="radio-item">
+                            <input type="radio" name="variable_repetitive" value="yes" onchange="handleVariableRepetitive(this)">
+                            Lặp lại
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="variable_repetitive" value="no" onchange="handleVariableNonRepetitive(this)">
+                            Không lặp lại
+                        </label>
+                    </div>
+                    <div id="variable_repetitive_sub" class="hidden"></div>
+                </div>
+            `;
+            
+            subContainer.innerHTML = subHTML;
+            subContainer.classList.remove('hidden');
+        }
+        
+        function handleVariableRepetitive(element) {
+            const subContainer = document.getElementById('variable_repetitive_sub');
+            formData.variable_repetitive = 'yes';
+            
+            const subHTML = `
+                <div class="sub-question">
+                    <h4>Đặc điểm đáng ngại:</h4>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="worrying_features" value="duration_>60s" onchange="updateWorryingFeatures()">
+                            Kéo dài > 60 giây
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="worrying_features" value="reduced_variability" onchange="updateWorryingFeatures()">
+                            Giảm dao động trong nhịp giảm
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="worrying_features" value="slow_return" onchange="updateWorryingFeatures()">
+                            Trở về baseline chậm hoặc không trở về
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="worrying_features" value="no_shouldering" onchange="updateWorryingFeatures()">
+                            Mất dạng vai (shouldering)
+                        </label>
+                    </div>
+                    <div class="sub-question">
+                        <h4>Thời gian xuất hiện:</h4>
+                        <div class="radio-group">
+                            <label class="radio-item">
+                                <input type="radio" name="variable_duration" value="<30" onchange="formData.variable_duration = this.value">
+                                < 30 phút
+                            </label>
+                            <label class="radio-item">
+                                <input type="radio" name="variable_duration" value="≥30" onchange="formData.variable_duration = this.value">
+                                ≥ 30 phút
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            subContainer.innerHTML = subHTML;
+            subContainer.classList.remove('hidden');
+        }
+        
+        function handleVariableNonRepetitive(element) {
+            const subContainer = document.getElementById('variable_repetitive_sub');
+            formData.variable_repetitive = 'no';
+            
+            const subHTML = `
+                <div class="sub-question">
+                    <h4>Đặc điểm đáng ngại:</h4>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="worrying_features_nonrep" value="duration_>60s" onchange="updateWorryingFeaturesNonRep()">
+                            Kéo dài > 60 giây
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="worrying_features_nonrep" value="reduced_variability" onchange="updateWorryingFeaturesNonRep()">
+                            Giảm dao động trong nhịp giảm
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="worrying_features_nonrep" value="slow_return" onchange="updateWorryingFeaturesNonRep()">
+                            Trở về baseline chậm hoặc không trở về
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="worrying_features_nonrep" value="no_shouldering" onchange="updateWorryingFeaturesNonRep()">
+                            Mất dạng vai (shouldering)
+                        </label>
+                    </div>
+                    <div class="sub-question">
+                        <h4>Thời gian xuất hiện:</h4>
+                        <div class="radio-group">
+                            <label class="radio-item">
+                                <input type="radio" name="variable_nonrep_duration" value="<30" onchange="formData.variable_nonrep_duration = this.value">
+                                < 30 phút
+                            </label>
+                            <label class="radio-item">
+                                <input type="radio" name="variable_nonrep_duration" value="≥30" onchange="formData.variable_nonrep_duration = this.value">
+                                ≥ 30 phút
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            subContainer.innerHTML = subHTML;
+            subContainer.classList.remove('hidden');
+        }
+        
+        function handleLateRepetitive(element) {
+            const subContainer = document.getElementById('late_repetitive_sub');
+            formData.late_repetitive = 'yes';
+            
+            const subHTML = `
+                <div class="sub-question">
+                    <h4>Thời gian:</h4>
+                    <div class="radio-group">
+                        <label class="radio-item">
+                            <input type="radio" name="late_duration" value="<30" onchange="formData.late_duration = this.value">
+                            < 30 phút
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="late_duration" value="≥30" onchange="formData.late_duration = this.value">
+                            ≥ 30 phút
+                        </label>
+                    </div>
+                </div>
+            `;
+            
+            subContainer.innerHTML = subHTML;
+            subContainer.classList.remove('hidden');
+        }
+        
+        function updateWorryingFeatures() {
+            const checkedFeatures = Array.from(document.querySelectorAll('input[name="worrying_features"]:checked'))
+                .map(cb => cb.value);
+            formData.worrying_features = checkedFeatures;
+        }
+        
+        function updateWorryingFeaturesNonRep() {
+            const checkedFeatures = Array.from(document.querySelectorAll('input[name="worrying_features_nonrep"]:checked'))
+                .map(cb => cb.value);
+            formData.worrying_features_nonrep = checkedFeatures;
+        }
+        
+        function handleAcceleration(element) {
+            updateProgress();
+            const value = element.value;
+            const subContainer = document.getElementById('acceleration_sub_questions');
+            
+            formData.acceleration = value;
+            
+            let subHTML = '';
+            
+            if (value === 'present') {
+                subHTML = `
+                    <div class="sub-question">
+                        <h4>Nhịp tăng có biến mất sau nhịp giảm không?</h4>
+                        <div class="radio-group">
+                            <label class="radio-item">
+                                <input type="radio" name="acceleration_disappear" value="yes" onchange="formData.acceleration_disappear = this.value">
+                                Có - biến mất sau nhịp giảm
+                            </label>
+                            <label class="radio-item">
+                                <input type="radio" name="acceleration_disappear" value="no" onchange="formData.acceleration_disappear = this.value">
+                                Không - vẫn có sau nhịp giảm
+                            </label>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (subHTML) {
+                subContainer.innerHTML = subHTML;
+                subContainer.classList.remove('hidden');
+            } else {
+                subContainer.classList.add('hidden');
+            }
+        }
+        
+        function analyzeResults() {
+            // Reset unclassified flag
+            formData.nice_unclassified = false;
+            
+            const results = {
+                nice: analyzeNICE(),
+                acog: analyzeACOG(),
+                rcog: analyzeRCOG(),
+                figo: analyzeFIGO(),
+                japanese5: analyzeJapanese5(),
+                physiological: analyzePhysiological()
+            };
+            
+            displayResults(results);
+        }
+        
+        function analyzeNICE() {
+            let scores = { white: 0, yellow: 0, red: 0 };
+            let details = [];
+            
+            // Gò tử cung
+            const contraction = document.querySelector('input[name="uterine_contraction"]:checked')?.value;
+            if (contraction === 'normal') {
+                scores.white++;
+                details.push('Gò tử cung: Bình thường');
+            } else if (contraction === 'suspicious' || contraction === 'prolonged') {
+                scores.yellow++;
+                details.push('Gò tử cung: Nghi ngờ');
+            }
+            
+            // Tim thai căn bản
+            const baseline = formData.baseline_fhr;
+            if (baseline === '110-160' && formData.baseline_stable === 'yes') {
+                scores.white++;
+                details.push('Tim thai: Bình thường');
+            } else if (baseline === '100-109' && formData.baseline_100_109_type === 'existing') {
+                scores.white++;
+                details.push('Tim thai: Bình thường');
+            } else if (baseline === '100-109' && formData.baseline_100_109_type === 'new') {
+                scores.yellow++;
+                details.push('Tim thai: Nghi ngờ');
+            } else if (baseline === '110-160' && (formData.baseline_increase_20_normal || formData.baseline_unidentifiable)) {
+                scores.yellow++;
+                details.push('Tim thai: Nghi ngờ');
+            } else if (baseline === '<80' || baseline === '80-100' || baseline === '>180') {
+                scores.red++;
+                details.push('Tim thai: Bất thường');
+            } else if (baseline === '160-179') {
+                scores.red++;
+                details.push('Tim thai: Bất thường');
+            }
+            
+            // Dao động nội tại
+            const variability = formData.variability;
+            if (variability === 'moderate') {
+                scores.white++;
+                details.push('Dao động: Bình thường');
+            } else if (variability === 'minimal' && formData.minimal_duration === '30-50') {
+                scores.yellow++;
+                details.push('Dao động: Nghi ngờ');
+            } else if (variability === 'marked' && formData.marked_duration === '≤10') {
+                scores.yellow++;
+                details.push('Dao động: Nghi ngờ');
+            } else if (variability === 'minimal' && formData.minimal_duration === '>50') {
+                scores.red++;
+                details.push('Dao động: Bất thường');
+            } else if (variability === 'marked' && formData.marked_duration === '>10') {
+                scores.red++;
+                details.push('Dao động: Bất thường');
+            } else if (variability === 'sinusoidal' || variability === 'undetectable') {
+                scores.red++;
+                details.push('Dao động: Bất thường');
+            }
+            
+            // Nhịp giảm (logic phức tạp)
+            analyzeDecelerationsNICE(scores, details);
+            
+            // Kết luận NICE
+            let classification, color;
+            if (formData.nice_unclassified) {
+                classification = 'KHÔNG PHÂN LOẠI ĐƯỢC';
+                color = 'unclassified';
+            } else if (scores.red > 0 || scores.yellow >= 2) {
+                classification = 'BẤT THƯỜNG';
+                color = 'abnormal';
+            } else if (scores.yellow === 1) {
+                classification = 'NGHI NGỜ';
+                color = 'suspicious';
+            } else {
+                classification = 'BÌNH THƯỜNG';
+                color = 'normal';
+            }
+            
+            return {
+                classification,
+                color,
+                details,
+                system: 'NICE 2022'
+            };
+        }
+        
+        function analyzeDecelerationsNICE(scores, details) {
+            const decelerations = formData.decelerations || [];
+            
+            if (decelerations.includes('none') || decelerations.includes('early')) {
+                scores.white++;
+                details.push('Nhịp giảm: Bình thường');
+                return;
+            }
+            
+            let hasUnclassified = false;
+            
+            if (decelerations.includes('variable')) {
+                if (formData.variable_repetitive === 'yes') {
+                    if (formData.worrying_features && formData.worrying_features.length > 0) {
+                        if (formData.variable_duration === '<30') {
+                            scores.yellow++;
+                            details.push('Nhịp giảm: Nghi ngờ (bất định lặp lại có đặc điểm đáng ngại < 30 phút)');
+                        } else {
+                            scores.red++;
+                            details.push('Nhịp giảm: Bất thường (bất định lặp lại có đặc điểm đáng ngại ≥ 30 phút)');
+                        }
+                    } else {
+                        // Trường hợp unclassified: Recurrent variable decelerations không có concerning features
+                        hasUnclassified = true;
+                        details.push('Nhịp giảm: Không phân loại được (bất định lặp lại không có đặc điểm đáng ngại)');
+                    }
+                } else if (formData.variable_repetitive === 'no') {
+                    if (formData.worrying_features_nonrep && formData.worrying_features_nonrep.length > 0) {
+                        if (formData.variable_nonrep_duration === '<30') {
+                            // Trường hợp unclassified: Variable decelerations with concerning features, non-recurrent, < 30 phút
+                            hasUnclassified = true;
+                            details.push('Nhịp giảm: Không phân loại được (bất định không lặp lại có đặc điểm đáng ngại < 30 phút)');
+                        } else {
+                            scores.yellow++;
+                            details.push('Nhịp giảm: Nghi ngờ (bất định không lặp lại có đặc điểm đáng ngại ≥ 30 phút)');
+                        }
+                    } else {
+                        scores.white++;
+                        details.push('Nhịp giảm: Bình thường');
+                    }
+                }
+            }
+            
+            if (decelerations.includes('late')) {
+                if (formData.late_repetitive === 'yes') {
+                    if (formData.late_duration === '<30') {
+                        scores.yellow++;
+                        details.push('Nhịp giảm: Nghi ngờ (muộn lặp lại < 30 phút)');
+                    } else {
+                        scores.red++;
+                        details.push('Nhịp giảm: Bất thường (muộn lặp lại ≥ 30 phút)');
+                    }
+                } else if (formData.late_repetitive === 'no') {
+                    // Trường hợp unclassified: Late decelerations không lặp lại
+                    hasUnclassified = true;
+                    details.push('Nhịp giảm: Không phân loại được (nhịp giảm muộn không lặp lại)');
+                }
+            }
+            
+            if (decelerations.includes('prolonged')) {
+                if (formData.prolonged_duration === '>3') {
+                    scores.red++;
+                    details.push('Nhịp giảm: Bất thường (kéo dài > 3 phút)');
+                }
+            }
+            
+            // Nếu có trường hợp unclassified, đánh dấu để xử lý riêng
+            if (hasUnclassified) {
+                formData.nice_unclassified = true;
+            }
+        }
+        
+        function analyzeACOG() {
+            // Nhóm I: Tất cả bình thường
+            const baseline = formData.baseline_fhr;
+            const variability = formData.variability;
+            const decelerations = formData.decelerations || [];
+            
+            const hasNormalBaseline = baseline === '110-160';
+            const hasModerateVariability = variability === 'moderate';
+            const hasNoLateOrVariable = !decelerations.includes('late') && !decelerations.includes('variable');
+            
+            // Nhóm III: Các tiêu chí nghiêm trọng
+            const hasAbsentVariability = variability === 'undetectable';
+            const hasSinusoidal = variability === 'sinusoidal';
+            const hasBradycardia = baseline === '<80' || baseline === '80-100';
+            const hasRecurrentLate = decelerations.includes('late') && formData.late_repetitive === 'yes';
+            const hasRecurrentVariable = decelerations.includes('variable') && formData.variable_repetitive === 'yes';
+            
+            let classification, color;
+            
+            if ((hasAbsentVariability && (hasRecurrentLate || hasRecurrentVariable || hasBradycardia)) || hasSinusoidal) {
+                classification = 'NHÓM III';
+                color = 'abnormal';
+            } else if (hasNormalBaseline && hasModerateVariability && hasNoLateOrVariable) {
+                classification = 'NHÓM I';
+                color = 'normal';
+            } else {
+                classification = 'NHÓM II';
+                color = 'suspicious';
+            }
+            
+            return {
+                classification,
+                color,
+                details: [`Phân loại theo tiêu chí ACOG: ${classification}`],
+                system: 'ACOG 2009'
+            };
+        }
+        
+        function analyzeRCOG() {
+            let reassuringFeatures = 0;
+            let nonReassuring = 0;
+            let abnormal = 0;
+            let details = [];
+            
+            // Tim thai căn bản
+            const baseline = formData.baseline_fhr;
+            if (baseline === '110-160') {
+                reassuringFeatures++;
+            } else if (baseline === '100-109' || baseline === '160-179') {
+                nonReassuring++;
+                details.push('Tim thai: Không an tâm');
+            } else if (baseline === '<80' || baseline === '80-100' || baseline === '>180') {
+                abnormal++;
+                details.push('Tim thai: Bất thường');
+            }
+            
+            // Dao động nội tai
+            const variability = formData.variability;
+            if (variability === 'moderate' || variability === 'marked') {
+                reassuringFeatures++;
+            } else if (variability === 'minimal') {
+                // Cần thêm logic thời gian
+                if (formData.minimal_duration === '>50') {
+                    abnormal++;
+                    details.push('Dao động: Bất thường');
+                } else {
+                    nonReassuring++;
+                    details.push('Dao động: Không an tâm');
+                }
+            } else if (variability === 'undetectable' || variability === 'sinusoidal') {
+                abnormal++;
+                details.push('Dao động: Bất thường');
+            }
+            
+            // Kết luận
+            let classification, color;
+            if (abnormal > 0 || nonReassuring >= 2) {
+                classification = 'BẤT THƯỜNG';
+                color = 'abnormal';
+            } else if (nonReassuring === 1) {
+                classification = 'NGHI NGỜ (Không an tâm)';
+                color = 'suspicious';
+            } else {
+                classification = 'BÌNH THƯỜNG (An tâm)';
+                color = 'normal';
+            }
+            
+            return {
+                classification,
+                color,
+                details,
+                system: 'RCOG 2001'
+            };
+        }
+        
+        function analyzeFIGO() {
+            let normal = 0;
+            let suspicious = 0;
+            let pathological = 0;
+            let details = [];
+            
+            // Tim thai căn bản
+            const baseline = formData.baseline_fhr;
+            if (baseline === '110-160') {
+                normal++;
+            } else if (baseline === '<80' || baseline === '80-100') {
+                pathological++;
+                details.push('Tim thai: Bệnh lý');
+            } else {
+                suspicious++;
+                details.push('Tim thai: Nghi ngờ');
+            }
+            
+            // Dao động
+            const variability = formData.variability;
+            if (variability === 'moderate') {
+                normal++;
+            } else if (variability === 'undetectable' || variability === 'marked' || variability === 'sinusoidal') {
+                pathological++;
+                details.push('Dao động: Bệnh lý');
+            } else {
+                suspicious++;
+                details.push('Dao động: Nghi ngờ');
+            }
+            
+            // Nhịp giảm
+            const decelerations = formData.decelerations || [];
+            if (decelerations.includes('none') || decelerations.includes('early')) {
+                normal++;
+            } else if (decelerations.includes('late') || decelerations.includes('prolonged')) {
+                pathological++;
+                details.push('Nhịp giảm: Bệnh lý');
+            } else {
+                suspicious++;
+                details.push('Nhịp giảm: Nghi ngờ');
+            }
+            
+            // Kết luận
+            let classification, color;
+            if (pathological > 0) {
+                classification = 'BỆNH LÝ';
+                color = 'abnormal';
+            } else if (suspicious > 0) {
+                classification = 'NGHI NGỜ';
+                color = 'suspicious';
+            } else {
+                classification = 'BÌNH THƯỜNG';
+                color = 'normal';
+            }
+            
+            return {
+                classification,
+                color,
+                details,
+                system: 'FIGO 2015'
+            };
+        }
+        
+        function analyzeJapanese5() {
+            // Logic phức tạp cho hệ thống 5 mức
+            const baseline = formData.baseline_fhr;
+            const variability = formData.variability;
+            const decelerations = formData.decelerations || [];
+            
+            let level = 1; // Mặc định level 1
+            
+            // Logic cơ bản dựa trên bảng trong tài liệu
+            if (baseline === '110-160' && variability === 'moderate' && decelerations.includes('none')) {
+                level = 1;
+            } else if ((baseline === '110-160' && variability === 'moderate' && decelerations.includes('early')) ||
+                       (baseline === '>180' && variability === 'moderate' && decelerations.includes('none'))) {
+                level = 2;
+            } else if (baseline === '<80' || variability === 'undetectable') {
+                level = 4;
+            } else if (variability === 'sinusoidal') {
+                level = 4;
+            } else {
+                level = 3; // Mặc định cho các trường hợp khác
+            }
+            
+            // Điều chỉnh dựa trên nhịp giảm nặng
+            if (decelerations.includes('variable') && formData.variable_severity === 'severe') {
+                level = Math.max(level, 4);
+            }
+            
+            if (decelerations.includes('late') && formData.late_severity === 'severe') {
+                level = Math.max(level, 4);
+            }
+            
+            if (decelerations.includes('prolonged') && formData.prolonged_severity === 'severe') {
+                level = Math.max(level, 4);
+            }
+            
+            // Level 5 cho các trường hợp rất nghiêm trọng
+            if ((baseline === '<80' && variability === 'undetectable') ||
+                (variability === 'undetectable' && decelerations.includes('variable') && formData.variable_severity === 'severe')) {
+                level = 5;
+            }
+            
+            let color;
+            if (level === 1) color = 'normal';
+            else if (level === 2) color = 'normal';
+            else if (level === 3) color = 'suspicious';
+            else if (level === 4) color = 'abnormal';
+            else color = 'abnormal';
+            
+            return {
+                classification: `MỨC ĐỘ ${level}`,
+                color,
+                details: [`Phân loại 5 mức (Nhật Bản): Mức độ ${level}`],
+                system: 'Phân loại 5 mức'
+            };
+        }
+        
+        function analyzePhysiological() {
+            const baseline = formData.baseline_fhr;
+            const variability = formData.variability;
+            const decelerations = formData.decelerations || [];
+            
+            // Thiếu oxy cấp
+            if (decelerations.includes('prolonged') && formData.prolonged_duration === '>3') {
+                return {
+                    classification: 'THIẾU OXY CẤP',
+                    color: 'abnormal',
+                    details: ['Nhịp giảm kéo dài > 3 phút'],
+                    system: 'Phân loại Sinh lý'
+                };
+            }
+            
+            // Thiếu oxy bán cấp
+            if (formData.time_comparison === 'deceleration_longer') {
+                return {
+                    classification: 'THIẾU OXY BÁN CẤP',
+                    color: 'abnormal',
+                    details: ['Thời gian trong nhịp giảm > thời gian ở baseline'],
+                    system: 'Phân loại Sinh lý'
+                };
+            }
+            
+            // Thiếu oxy diễn tiến mất bù
+            const hasIncreasedBaseline = formData.baseline_increase_10 || formData.baseline_increase_20 || 
+                                       formData.baseline_increase_10_normal || formData.baseline_increase_20_normal;
+            const hasAbnormalVariability = variability === 'minimal' || variability === 'marked';
+            const hasRecurrentDecelerations = (decelerations.includes('variable') && formData.variable_repetitive === 'yes') ||
+                                             (decelerations.includes('late') && formData.late_repetitive === 'yes');
+            
+            if (hasIncreasedBaseline && hasAbnormalVariability && hasRecurrentDecelerations) {
+                return {
+                    classification: 'THIẾU OXY DIỄN TIẾN MẤT BÙ',
+                    color: 'abnormal',
+                    details: ['Tăng baseline + dao động bất thường + nhịp giảm lặp lại'],
+                    system: 'Phân loại Sinh lý'
+                };
+            }
+            
+            // Thiếu oxy diễn tiến còn bù
+            if (hasIncreasedBaseline && variability === 'moderate' && 
+                formData.time_comparison === 'baseline_longer' &&
+                (formData.acceleration_disappear === 'yes' || formData.acceleration === 'absent')) {
+                return {
+                    classification: 'THIẾU OXY DIỄN TIẾN CÒN BÙ',
+                    color: 'suspicious',
+                    details: ['Tăng baseline + mất nhịp tăng + baseline dài hơn nhịp giảm'],
+                    system: 'Phân loại Sinh lý'
+                };
+            }
+            
+            return {
+                classification: 'KHÔNG XÁC ĐỊNH THIẾU OXY',
+                color: 'normal',
+                details: ['Không có dấu hiệu rõ ràng của thiếu oxy'],
+                system: 'Phân loại Sinh lý'
+            };
+        }
+        
+        function displayResults(results) {
+            const container = document.getElementById('results_container');
+            
+            let html = '';
+            
+            Object.values(results).forEach(result => {
+                html += `
+                    <div class="result-card result-${result.color}">
+                        <h4>${result.system}</h4>
+                        <p><strong>${result.classification}</strong></p>
+                        <ul>
+                            ${result.details.map(detail => `<li>${detail}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // Initialize radio button styling
+        document.addEventListener('change', function(e) {
+            if (e.target.type === 'radio') {
+                // Remove selected class from all radio items with the same name
+                document.querySelectorAll(`input[name="${e.target.name}"]`).forEach(radio => {
+                    radio.closest('.radio-item').classList.remove('selected');
+                });
+                // Add selected class to the checked radio item
+                e.target.closest('.radio-item').classList.add('selected');
+            } else if (e.target.type === 'checkbox') {
+                // Toggle selected class for checkboxes
+                if (e.target.checked) {
+                    e.target.closest('.checkbox-item').classList.add('selected');
+                } else {
+                    e.target.closest('.checkbox-item').classList.remove('selected');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
