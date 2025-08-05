@@ -582,6 +582,18 @@
                     <input type="file" id="ctgImage" accept="image/*" onchange="handleImageUpload(event)">
                 </div>
                 
+                <!-- ID Bệnh nhân -->
+                <div class="form-group">
+                    <h3>🏥 ID Bệnh nhân (tùy chọn)</h3>
+                    <div style="margin-top: 10px;">
+                        <input type="text" id="patientId" placeholder="Nhập ID bệnh nhân (nếu có)" 
+                               style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px; transition: border-color 0.3s;"
+                               onchange="updateProgress(); forceUpdateSummary();"
+                               onfocus="this.style.borderColor='#3498db'"
+                               onblur="this.style.borderColor='#e9ecef'">
+                    </div>
+                </div>
+                
                 <!-- Hiển thị ảnh CTG cố định -->
                 <div class="image-display" id="imageDisplay">
                     <h4>🖼️ Ảnh CTG tham khảo (Click để phóng to)</h4>
@@ -830,6 +842,12 @@
             const summaryContent = document.getElementById('summary_content');
             
             let summaryItems = [];
+            
+            // ID Bệnh nhân (nếu có)
+            const patientId = document.getElementById('patientId').value.trim();
+            if (patientId) {
+                summaryItems.push(`<div class="summary-item selected"><strong>🏥 ID Bệnh nhân:</strong> ${patientId}</div>`);
+            }
             
             // Gò tử cung
             const contraction = document.querySelector('input[name="uterine_contraction"]:checked');
@@ -1538,8 +1556,13 @@
             }
             
             // Xác nhận trước khi gửi
-            const confirmed = confirm('Bạn có chắc chắn muốn lưu dữ liệu CTG này lên Google Sheets?\n\nDữ liệu bao gồm:\n✅ Thông tin CTG đã chọn\n✅ Kết quả phân tích từ 6 hệ thống\n✅ Ảnh CTG (nếu có) → Upload lên Google Drive\n✅ Link ảnh sẽ được lưu trong Sheets');
+            const patientId = document.getElementById('patientId').value.trim();
+            let confirmMessage = 'Bạn có chắc chắn muốn lưu dữ liệu CTG này lên Google Sheets?\n\nDữ liệu bao gồm:\n✅ Kết quả 6 hệ thống phân loại\n✅ Thông tin CTG chi tiết\n✅ Ảnh CTG (nếu có) → Upload lên Google Drive';
+            if (patientId) {
+                confirmMessage += `\n✅ ID Bệnh nhân: ${patientId}`;
+            }
             
+            const confirmed = confirm(confirmMessage);
             if (!confirmed) return;
             
             // Hiển thị trạng thái đang gửi
@@ -1547,16 +1570,19 @@
             document.getElementById('saveBtn').disabled = true;
             
             try {
-                // Chuẩn bị dữ liệu gửi đầy đủ (bao gồm ảnh base64)
+                // Chuẩn bị dữ liệu gửi đầy đủ
                 const payload = {
                     timestamp: new Date().toISOString(),
+                    patientId: patientId || '',
                     formData: formData,
                     analysisResults: analysisResults,
-                    ctgImage: ctgImageData, // Gửi full base64 để Apps Script xử lý
-                    summary: generateDataSummary()
+                    ctgImage: ctgImageData,
+                    summary: generateDataSummary(),
+                    detailedResults: generateDetailedResults()
                 };
                 
-                // Sử dụng FormData để gửi
+                console.log('Sending payload:', payload);
+                
                 const response = await fetch(APPS_SCRIPT_URL, {
                     method: 'POST',
                     headers: {
@@ -1570,7 +1596,10 @@
                 if (result.success) {
                     let message = '✅ Lưu dữ liệu thành công!';
                     if (result.imageUrl && result.imageUrl !== 'Không có ảnh') {
-                        message += `\n🖼️ Ảnh CTG đã được upload: ${result.imageUrl}`;
+                        message += `\n🖼️ Ảnh CTG: ${result.imageUrl}`;
+                    }
+                    if (patientId) {
+                        message += `\n🏥 ID Bệnh nhân: ${patientId}`;
                     }
                     showStatusMessage(message, 'success');
                 } else {
@@ -1580,14 +1609,16 @@
             } catch (error) {
                 console.error('Error saving data:', error);
                 
-                // Fallback method với FormData
+                // Fallback method
                 try {
                     const payload = {
                         timestamp: new Date().toISOString(),
+                        patientId: patientId || '',
                         formData: formData,
                         analysisResults: analysisResults,
                         ctgImage: ctgImageData,
-                        summary: generateDataSummary()
+                        summary: generateDataSummary(),
+                        detailedResults: generateDetailedResults()
                     };
                     
                     const formData_send = new FormData();
@@ -1607,6 +1638,42 @@
             } finally {
                 document.getElementById('saveBtn').disabled = false;
             }
+        }
+        
+        function generateDetailedResults() {
+            // Tạo dữ liệu chi tiết cho 6 hệ thống phân loại
+            const results = {};
+            
+            if (analysisResults.nice) {
+                results.nice = analysisResults.nice.classification;
+            }
+            if (analysisResults.figo) {
+                results.figo = analysisResults.figo.classification;
+            }
+            if (analysisResults.rcog) {
+                results.rcog = analysisResults.rcog.classification;
+            }
+            if (analysisResults.acog) {
+                results.acog = analysisResults.acog.classification;
+            }
+            if (analysisResults.japanese5) {
+                results.japanese5 = analysisResults.japanese5.classification;
+            }
+            if (analysisResults.physiological) {
+                results.physiological = analysisResults.physiological.classification;
+            }
+            
+            // Xử lý gò tử cung: normal hoặc hyper
+            const contraction = document.querySelector('input[name="uterine_contraction"]:checked');
+            if (contraction) {
+                if (contraction.value === 'normal') {
+                    results.uterine_contraction = 'normal';
+                } else {
+                    results.uterine_contraction = 'hyper'; // suspicious hoặc prolonged = hyper
+                }
+            }
+            
+            return results;
         }
         
         // Callback function cho JSONP
@@ -1690,7 +1757,9 @@
                     input.closest('.checkbox-item').classList.remove('selected');
                 });
                 
+                // Reset file inputs and text inputs
                 document.getElementById('ctgImage').value = '';
+                document.getElementById('patientId').value = '';
                 
                 // Reset image display
                 const container = document.getElementById('stickyImageContainer');
@@ -2608,4 +2677,3 @@
     </script>
 </body>
 </html>
-
