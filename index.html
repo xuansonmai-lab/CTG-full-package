@@ -768,7 +768,7 @@
         let analysisResults = null;
         
         // Google Apps Script URL
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz_GJvgSc6As82iomzZ9nGdWfBJgR90pX7gQyOS3ShzlvMb7qfxQlgP7GwSr4s-ygb1/exec';
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzfj0e_E_r94XFXt1pv5fOEY9y6TDKGbvRP6PQKTUaXCLE9gutiIPuS04sra6hyG7Sh/exec';
         
         function handleImageUpload(event) {
             const file = event.target.files[0];
@@ -1543,7 +1543,7 @@
             if (!confirmed) return;
             
             // Hiển thị trạng thái đang gửi
-            showStatusMessage('⏳ Đang lưu dữ liệu và upload ảnh...', 'loading');
+            showStatusMessage('⏳ Đang lưu dữ liệu...', 'loading');
             document.getElementById('saveBtn').disabled = true;
             
             try {
@@ -1552,70 +1552,50 @@
                     timestamp: new Date().toISOString(),
                     formData: formData,
                     analysisResults: analysisResults,
-                    ctgImage: ctgImageData, // Gửi đầy đủ dữ liệu ảnh base64
-                    ctgImageName: ctgImageData ? `CTG_${new Date().getTime()}.jpg` : null,
+                    ctgImage: ctgImageData ? ctgImageData.substring(0, 100) + '...[truncated]' : null, // Rút gọn ảnh để test
                     summary: generateDataSummary()
                 };
                 
-                console.log('Sending data with image:', ctgImageData ? 'Yes' : 'No');
+                // Phương pháp 1: Fetch với FormData
+                const formData_send = new FormData();
+                formData_send.append('data', JSON.stringify(payload));
                 
-                // Phương pháp chính: Gửi với POST request JSON
                 const response = await fetch(APPS_SCRIPT_URL, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload)
+                    body: formData_send,
+                    mode: 'no-cors' // Bypass CORS
                 });
                 
-                const result = await response.json();
-                
-                if (result.success) {
-                    showStatusMessage(`✅ Lưu thành công!\n📄 Dữ liệu: Đã lưu\n🖼️ Ảnh: ${result.imageUrl ? 'Đã upload lên Drive' : 'Không có ảnh'}`, 'success');
-                    
-                    // Hiển thị link ảnh nếu có
-                    if (result.imageUrl && result.imageUrl.includes('drive.google.com')) {
-                        setTimeout(() => {
-                            if (confirm('Bạn có muốn xem ảnh đã upload không?')) {
-                                window.open(result.imageUrl, '_blank');
-                            }
-                        }, 2000);
-                    }
-                } else {
-                    showStatusMessage('⚠️ Có lỗi xảy ra: ' + (result.error || 'Unknown error'), 'error');
-                }
+                // Với no-cors, response.json() sẽ không hoạt động
+                showStatusMessage('✅ Dữ liệu đã được gửi!', 'success');
                 
             } catch (error) {
-                console.error('Primary method failed:', error);
+                console.error('Fetch failed, trying alternative method:', error);
                 
-                // Phương pháp dự phòng: Gửi với no-cors
+                // Phương pháp 2: Sử dụng fetch đơn giản
                 try {
-                    await fetch(APPS_SCRIPT_URL, {
+                    const payload = {
+                        timestamp: new Date().toISOString(),
+                        formData: formData,
+                        analysisResults: analysisResults,
+                        ctgImage: ctgImageData ? 'Image attached' : null,
+                        summary: generateDataSummary()
+                    };
+                    
+                    await fetch(APPS_SCRIPT_URL + '?callback=?', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'text/plain',
                         },
-                        body: JSON.stringify({
-                            timestamp: new Date().toISOString(),
-                            formData: formData,
-                            analysisResults: analysisResults,
-                            ctgImage: ctgImageData,
-                            ctgImageName: ctgImageData ? `CTG_${new Date().getTime()}.jpg` : null,
-                            summary: generateDataSummary()
-                        }),
+                        body: JSON.stringify(payload),
                         mode: 'no-cors'
                     });
                     
-                    showStatusMessage('✅ Dữ liệu đã được gửi! (Dự phòng)', 'success');
+                    showStatusMessage('✅ Dữ liệu đã được gửi! (Phương pháp 2)', 'success');
                     
                 } catch (error2) {
-                    console.error('All methods failed:', error2);
-                    showStatusMessage(`❌ Lỗi kết nối: ${error2.message}\n\n🔧 Kiểm tra:\n1. URL Apps Script đúng chưa?\n2. Apps Script đã deploy với quyền "Anyone"?\n3. Internet có ổn định?`, 'error');
-                }
-            } finally {
-                document.getElementById('saveBtn').disabled = false;
-            }
-        }
+                    console.error('Alternative method also failed:', error2);
+                    
                     // Phương pháp 3: JSONP fallback
                     try {
                         const payload = {
@@ -2642,4 +2622,3 @@
     </script>
 </body>
 </html>
-
