@@ -368,10 +368,17 @@
         .image-display img {
             width: 100%;
             height: auto;
-            max-height: 200px;
+            max-height: 250px;
             object-fit: contain;
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .image-display img:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transform: scale(1.02);
         }
         
         .image-display .no-image {
@@ -379,6 +386,60 @@
             color: #7f8c8d;
             font-style: italic;
             padding: 20px;
+        }
+        
+        /* Modal for image zoom */
+        .image-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            animation: fadeIn 0.3s;
+        }
+        
+        .image-modal img {
+            display: block;
+            margin: auto;
+            max-width: 95%;
+            max-height: 95%;
+            margin-top: 2.5%;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(255,255,255,0.1);
+        }
+        
+        .image-modal .close {
+            position: absolute;
+            top: 20px;
+            right: 35px;
+            color: #fff;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+        
+        .image-modal .close:hover {
+            color: #ccc;
+        }
+        
+        .image-modal .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            text-align: center;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         
         .summary-section {
@@ -428,10 +489,23 @@
             .image-display {
                 position: relative;
                 top: auto;
+                margin-bottom: 15px;
             }
             
             .image-display img {
-                max-height: 150px;
+                max-height: 180px;
+            }
+            
+            .image-modal img {
+                max-width: 98%;
+                max-height: 90%;
+                margin-top: 5%;
+            }
+            
+            .image-modal .close {
+                top: 10px;
+                right: 20px;
+                font-size: 30px;
             }
         }
     </style>
@@ -458,10 +532,17 @@
                 
                 <!-- Hiển thị ảnh CTG cố định -->
                 <div class="image-display" id="imageDisplay">
-                    <h4>🖼️ Ảnh CTG tham khảo</h4>
+                    <h4>🖼️ Ảnh CTG tham khảo (Click để phóng to)</h4>
                     <div id="stickyImageContainer">
                         <div class="no-image">Chưa có ảnh CTG. Tải lên ảnh để hiển thị tại đây.</div>
                     </div>
+                </div>
+                
+                <!-- Modal for image zoom -->
+                <div id="imageModal" class="image-modal" onclick="closeImageModal()">
+                    <span class="close" onclick="closeImageModal()">&times;</span>
+                    <img id="modalImage" src="" alt="CTG Zoomed">
+                    <div class="instructions">Click anywhere or press ESC to close</div>
                 </div>
                 
                 <!-- Gò tử cung -->
@@ -469,15 +550,15 @@
                     <h3>1. Gò tử cung</h3>
                     <div class="radio-group">
                         <label class="radio-item">
-                            <input type="radio" name="uterine_contraction" value="normal" onchange="updateProgress()">
+                            <input type="radio" name="uterine_contraction" value="normal" onchange="updateProgress(); forceUpdateSummary();">
                             < 5 cơn/10 phút
                         </label>
                         <label class="radio-item">
-                            <input type="radio" name="uterine_contraction" value="suspicious" onchange="updateProgress()">
+                            <input type="radio" name="uterine_contraction" value="suspicious" onchange="updateProgress(); forceUpdateSummary();">
                             ≥ 5 cơn/10 phút
                         </label>
                         <label class="radio-item">
-                            <input type="radio" name="uterine_contraction" value="prolonged" onchange="updateProgress()">
+                            <input type="radio" name="uterine_contraction" value="prolonged" onchange="updateProgress(); forceUpdateSummary();">
                             Cơn co kéo dài ≥ 2 phút
                         </label>
                     </div>
@@ -638,11 +719,29 @@
                 reader.onload = function(e) {
                     ctgImageData = e.target.result;
                     const container = document.getElementById('stickyImageContainer');
-                    container.innerHTML = `<img src="${e.target.result}" alt="CTG Image">`;
+                    container.innerHTML = `<img src="${e.target.result}" alt="CTG Image" onclick="openImageModal('${e.target.result}')">`;
                 };
                 reader.readAsDataURL(file);
             }
         }
+        
+        function openImageModal(imageSrc) {
+            const modal = document.getElementById('imageModal');
+            const modalImg = document.getElementById('modalImage');
+            modal.style.display = 'block';
+            modalImg.src = imageSrc;
+        }
+        
+        function closeImageModal() {
+            document.getElementById('imageModal').style.display = 'none';
+        }
+        
+        // Close modal with ESC key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeImageModal();
+            }
+        });
         
         function updateProgress() {
             const totalQuestions = 5;
@@ -657,10 +756,15 @@
             const percentage = (completed / totalQuestions) * 100;
             document.getElementById('progressFill').style.width = percentage + '%';
             
-            // Hiển thị tổng quát CTG khi đủ thông tin cơ bản
-            if (completed >= 3) {
+            // Hiển thị tổng quát CTG ngay khi có ít nhất 1 thông tin
+            if (completed >= 1) {
                 updateCTGSummary();
             }
+        }
+        
+        // Hàm để force update summary
+        function forceUpdateSummary() {
+            setTimeout(updateCTGSummary, 100);
         }
         
         function updateCTGSummary() {
@@ -852,11 +956,11 @@
                         <h4>Tim thai 100-109 bpm này:</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="baseline_100_109_type" value="new" onchange="formData.baseline_100_109_type = this.value; updateProgress();">
+                                <input type="radio" name="baseline_100_109_type" value="new" onchange="formData.baseline_100_109_type = this.value; updateProgress(); forceUpdateSummary();">
                                 Mới xuất hiện (trước đó > 109 bpm)
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="baseline_100_109_type" value="existing" onchange="formData.baseline_100_109_type = this.value; updateProgress();">
+                                <input type="radio" name="baseline_100_109_type" value="existing" onchange="formData.baseline_100_109_type = this.value; updateProgress(); forceUpdateSummary();">
                                 Đã có từ trước (băng ghi trước cũng 100-109 bpm)
                             </label>
                         </div>
@@ -868,7 +972,7 @@
                         <h4>Tim thai có ổn định và phù hợp tuổi thai không?</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="baseline_stable" value="yes" onchange="formData.baseline_stable = this.value; updateProgress();">
+                                <input type="radio" name="baseline_stable" value="yes" onchange="formData.baseline_stable = this.value; updateProgress(); forceUpdateSummary();">
                                 Có - ổn định và phù hợp
                             </label>
                             <label class="radio-item">
@@ -890,11 +994,11 @@
                         <p style="color: #e74c3c; font-weight: bold;">⚠️ Tim thai > 160 bpm = Tự động coi là tăng tim thai căn bản</p>
                         <div class="checkbox-group">
                             <label class="checkbox-item">
-                                <input type="checkbox" name="baseline_increase_10" value="yes" onchange="formData.baseline_increase_10 = this.checked; updateProgress();" checked disabled>
+                                <input type="checkbox" name="baseline_increase_10" value="yes" onchange="formData.baseline_increase_10 = this.checked; updateProgress(); forceUpdateSummary();" checked disabled>
                                 Tăng > 10% so với băng ghi trước đó (Tự động)
                             </label>
                             <label class="checkbox-item">
-                                <input type="checkbox" name="baseline_increase_20" value="yes" onchange="formData.baseline_increase_20 = this.checked; updateProgress();">
+                                <input type="checkbox" name="baseline_increase_20" value="yes" onchange="formData.baseline_increase_20 = this.checked; updateProgress(); forceUpdateSummary();">
                                 Tăng ≥ 20 bpm so với băng ghi trước đó
                             </label>
                         </div>
@@ -910,6 +1014,8 @@
             } else {
                 subContainer.classList.add('hidden');
             }
+            
+            forceUpdateSummary();
         }
         
         function handleBaselineUnstable(element) {
@@ -920,11 +1026,11 @@
                     <h4>Loại thay đổi:</h4>
                     <div class="checkbox-group">
                         <label class="checkbox-item">
-                            <input type="checkbox" name="baseline_increase_10_normal" value="yes" onchange="formData.baseline_increase_10_normal = this.checked; updateProgress();">
+                            <input type="checkbox" name="baseline_increase_10_normal" value="yes" onchange="formData.baseline_increase_10_normal = this.checked; updateProgress(); forceUpdateSummary();">
                             Tăng > 10% so với băng ghi trước đó
                         </label>
                         <label class="checkbox-item">
-                            <input type="checkbox" name="baseline_increase_20_normal" value="yes" onchange="formData.baseline_increase_20_normal = this.checked; updateProgress();">
+                            <input type="checkbox" name="baseline_increase_20_normal" value="yes" onchange="formData.baseline_increase_20_normal = this.checked; updateProgress(); forceUpdateSummary();">
                             Tăng ≥ 20 bpm so với băng ghi trước đó
                         </label>
                     </div>
@@ -933,6 +1039,7 @@
             
             subContainer.innerHTML = subHTML;
             subContainer.classList.remove('hidden');
+            forceUpdateSummary();
         }
         
         function handleVariability(element) {
@@ -950,11 +1057,11 @@
                         <h4>Thời gian dao động < 5 bpm:</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="minimal_duration" value="30-50" onchange="formData.minimal_duration = this.value; updateProgress();">
+                                <input type="radio" name="minimal_duration" value="30-50" onchange="formData.minimal_duration = this.value; updateProgress(); forceUpdateSummary();">
                                 30-50 phút
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="minimal_duration" value=">50" onchange="formData.minimal_duration = this.value; updateProgress();">
+                                <input type="radio" name="minimal_duration" value=">50" onchange="formData.minimal_duration = this.value; updateProgress(); forceUpdateSummary();">
                                 > 50 phút
                             </label>
                         </div>
@@ -966,11 +1073,11 @@
                         <h4>Thời gian dao động > 25 bpm:</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="marked_duration" value="≤10" onchange="formData.marked_duration = this.value; updateProgress();">
+                                <input type="radio" name="marked_duration" value="≤10" onchange="formData.marked_duration = this.value; updateProgress(); forceUpdateSummary();">
                                 ≤ 10 phút
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="marked_duration" value=">10" onchange="formData.marked_duration = this.value; updateProgress();">
+                                <input type="radio" name="marked_duration" value=">10" onchange="formData.marked_duration = this.value; updateProgress(); forceUpdateSummary();">
                                 > 10 phút
                             </label>
                         </div>
@@ -984,6 +1091,8 @@
             } else {
                 subContainer.classList.add('hidden');
             }
+            
+            forceUpdateSummary();
         }
         
         function handleDeceleration(element) {
@@ -1037,11 +1146,11 @@
                         <h4>Nhịp giảm muộn:</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="late_severity" value="mild" onchange="formData.late_severity = this.value; updateProgress();">
+                                <input type="radio" name="late_severity" value="mild" onchange="formData.late_severity = this.value; updateProgress(); forceUpdateSummary();">
                                 Nhẹ
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="late_severity" value="severe" onchange="formData.late_severity = this.value; updateProgress();">
+                                <input type="radio" name="late_severity" value="severe" onchange="formData.late_severity = this.value; updateProgress(); forceUpdateSummary();">
                                 Nặng (> 15 bpm từ baseline)
                             </label>
                         </div>
@@ -1053,7 +1162,7 @@
                                     Lặp lại
                                 </label>
                                 <label class="radio-item">
-                                    <input type="radio" name="late_repetitive" value="no" onchange="formData.late_repetitive = this.value; updateProgress();">
+                                    <input type="radio" name="late_repetitive" value="no" onchange="formData.late_repetitive = this.value; updateProgress(); forceUpdateSummary();">
                                     Không lặp lại
                                 </label>
                             </div>
@@ -1069,11 +1178,11 @@
                         <h4>Nhịp giảm kéo dài:</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="prolonged_severity" value="mild" onchange="formData.prolonged_severity = this.value; updateProgress();">
+                                <input type="radio" name="prolonged_severity" value="mild" onchange="formData.prolonged_severity = this.value; updateProgress(); forceUpdateSummary();">
                                 Nhẹ
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="prolonged_severity" value="severe" onchange="formData.prolonged_severity = this.value; updateProgress();">
+                                <input type="radio" name="prolonged_severity" value="severe" onchange="formData.prolonged_severity = this.value; updateProgress(); forceUpdateSummary();">
                                 Nặng (điểm thấp nhất < 80 bpm)
                             </label>
                         </div>
@@ -1081,15 +1190,15 @@
                             <h4>Thời gian:</h4>
                             <div class="radio-group">
                                 <label class="radio-item">
-                                    <input type="radio" name="prolonged_duration" value="<2" onchange="formData.prolonged_duration = this.value; updateProgress();">
+                                    <input type="radio" name="prolonged_duration" value="<2" onchange="formData.prolonged_duration = this.value; updateProgress(); forceUpdateSummary();">
                                     < 2 phút
                                 </label>
                                 <label class="radio-item">
-                                    <input type="radio" name="prolonged_duration" value="2-3" onchange="formData.prolonged_duration = this.value; updateProgress();">
+                                    <input type="radio" name="prolonged_duration" value="2-3" onchange="formData.prolonged_duration = this.value; updateProgress(); forceUpdateSummary();">
                                     2-3 phút
                                 </label>
                                 <label class="radio-item">
-                                    <input type="radio" name="prolonged_duration" value=">3" onchange="formData.prolonged_duration = this.value; updateProgress();">
+                                    <input type="radio" name="prolonged_duration" value=">3" onchange="formData.prolonged_duration = this.value; updateProgress(); forceUpdateSummary();">
                                     > 3 phút
                                 </label>
                             </div>
@@ -1097,15 +1206,15 @@
                                 <h4>Thời gian xuất hiện (cho FIGO):</h4>
                                 <div class="radio-group">
                                     <label class="radio-item">
-                                        <input type="radio" name="prolonged_occurrence_time" value="<20" onchange="formData.prolonged_occurrence_time = this.value; updateProgress();">
+                                        <input type="radio" name="prolonged_occurrence_time" value="<20" onchange="formData.prolonged_occurrence_time = this.value; updateProgress(); forceUpdateSummary();">
                                         < 20 phút
                                     </label>
                                     <label class="radio-item">
-                                        <input type="radio" name="prolonged_occurrence_time" value="20-30" onchange="formData.prolonged_occurrence_time = this.value; updateProgress();">
+                                        <input type="radio" name="prolonged_occurrence_time" value="20-30" onchange="formData.prolonged_occurrence_time = this.value; updateProgress(); forceUpdateSummary();">
                                         20-30 phút
                                     </label>
                                     <label class="radio-item">
-                                        <input type="radio" name="prolonged_occurrence_time" value=">30" onchange="formData.prolonged_occurrence_time = this.value; updateProgress();">
+                                        <input type="radio" name="prolonged_occurrence_time" value=">30" onchange="formData.prolonged_occurrence_time = this.value; updateProgress(); forceUpdateSummary();">
                                         > 30 phút
                                     </label>
                                 </div>
@@ -1122,11 +1231,11 @@
                         <h4>So sánh thời gian:</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="time_comparison" value="baseline_longer" onchange="formData.time_comparison = this.value; updateProgress();">
+                                <input type="radio" name="time_comparison" value="baseline_longer" onchange="formData.time_comparison = this.value; updateProgress(); forceUpdateSummary();">
                                 Thời gian ở tim thai căn bản dài hơn
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="time_comparison" value="deceleration_longer" onchange="formData.time_comparison = this.value; updateProgress();">
+                                <input type="radio" name="time_comparison" value="deceleration_longer" onchange="formData.time_comparison = this.value; updateProgress(); forceUpdateSummary();">
                                 Thời gian trong nhịp giảm dài hơn
                             </label>
                         </div>
@@ -1140,6 +1249,8 @@
             } else {
                 subContainer.classList.add('hidden');
             }
+            
+            forceUpdateSummary();
         }
         
         function handleVariableDeceleration(element) {
@@ -1167,6 +1278,7 @@
             
             subContainer.innerHTML = subHTML;
             subContainer.classList.remove('hidden');
+            forceUpdateSummary();
         }
         
         function handleVariableRepetitive(element) {
@@ -1198,11 +1310,11 @@
                         <h4>Thời gian xuất hiện:</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="variable_duration" value="<30" onchange="formData.variable_duration = this.value">
+                                <input type="radio" name="variable_duration" value="<30" onchange="formData.variable_duration = this.value; forceUpdateSummary();">
                                 < 30 phút
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="variable_duration" value="≥30" onchange="formData.variable_duration = this.value">
+                                <input type="radio" name="variable_duration" value="≥30" onchange="formData.variable_duration = this.value; forceUpdateSummary();">
                                 ≥ 30 phút
                             </label>
                         </div>
@@ -1212,6 +1324,7 @@
             
             subContainer.innerHTML = subHTML;
             subContainer.classList.remove('hidden');
+            forceUpdateSummary();
         }
         
         function handleVariableNonRepetitive(element) {
@@ -1243,11 +1356,11 @@
                         <h4>Thời gian xuất hiện:</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="variable_nonrep_duration" value="<30" onchange="formData.variable_nonrep_duration = this.value">
+                                <input type="radio" name="variable_nonrep_duration" value="<30" onchange="formData.variable_nonrep_duration = this.value; forceUpdateSummary();">
                                 < 30 phút
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="variable_nonrep_duration" value="≥30" onchange="formData.variable_nonrep_duration = this.value">
+                                <input type="radio" name="variable_nonrep_duration" value="≥30" onchange="formData.variable_nonrep_duration = this.value; forceUpdateSummary();">
                                 ≥ 30 phút
                             </label>
                         </div>
@@ -1257,6 +1370,7 @@
             
             subContainer.innerHTML = subHTML;
             subContainer.classList.remove('hidden');
+            forceUpdateSummary();
         }
         
         function handleLateRepetitive(element) {
@@ -1268,11 +1382,11 @@
                     <h4>Thời gian:</h4>
                     <div class="radio-group">
                         <label class="radio-item">
-                            <input type="radio" name="late_duration" value="<30" onchange="formData.late_duration = this.value">
+                            <input type="radio" name="late_duration" value="<30" onchange="formData.late_duration = this.value; forceUpdateSummary();">
                             < 30 phút
                         </label>
                         <label class="radio-item">
-                            <input type="radio" name="late_duration" value="≥30" onchange="formData.late_duration = this.value">
+                            <input type="radio" name="late_duration" value="≥30" onchange="formData.late_duration = this.value; forceUpdateSummary();">
                             ≥ 30 phút
                         </label>
                     </div>
@@ -1281,6 +1395,7 @@
             
             subContainer.innerHTML = subHTML;
             subContainer.classList.remove('hidden');
+            forceUpdateSummary();
         }
         
         function updateWorryingFeatures() {
@@ -1288,6 +1403,7 @@
                 .map(cb => cb.value);
             formData.worrying_features = checkedFeatures;
             updateProgress();
+            forceUpdateSummary();
         }
         
         function updateWorryingFeaturesNonRep() {
@@ -1295,6 +1411,7 @@
                 .map(cb => cb.value);
             formData.worrying_features_nonrep = checkedFeatures;
             updateProgress();
+            forceUpdateSummary();
         }
         
         function handleAcceleration(element) {
@@ -1312,11 +1429,11 @@
                         <h4>Nhịp tăng có biến mất sau nhịp giảm không?</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="acceleration_disappear" value="yes" onchange="formData.acceleration_disappear = this.value; updateProgress();">
+                                <input type="radio" name="acceleration_disappear" value="yes" onchange="formData.acceleration_disappear = this.value; updateProgress(); forceUpdateSummary();">
                                 Có - biến mất sau nhịp giảm
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="acceleration_disappear" value="no" onchange="formData.acceleration_disappear = this.value; updateProgress();">
+                                <input type="radio" name="acceleration_disappear" value="no" onchange="formData.acceleration_disappear = this.value; updateProgress(); forceUpdateSummary();">
                                 Không - vẫn có sau nhịp giảm
                             </label>
                         </div>
@@ -1330,6 +1447,8 @@
             } else {
                 subContainer.classList.add('hidden');
             }
+            
+            forceUpdateSummary();
         }
         
         function analyzeResults() {
