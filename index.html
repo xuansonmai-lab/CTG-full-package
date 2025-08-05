@@ -91,8 +91,8 @@
         
         .radio-group {
             display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
+            flex-direction: column;
+            gap: 10px;
             margin-top: 10px;
         }
         
@@ -152,6 +152,12 @@
         .checkbox-item.selected {
             background: #e8f4fd;
             border-color: #3498db;
+        }
+        
+        .checkbox-item input[type="checkbox"]:disabled,
+        .checkbox-item.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
         
         .results-header {
@@ -400,6 +406,13 @@
                     </div>
                 </div>
 
+                <div id="ctg_summary" class="form-group" style="display: none;">
+                    <h3>📋 Tổng quát CTG</h3>
+                    <div id="summary_content" style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #3498db;">
+                        <!-- Summary sẽ được thêm vào đây -->
+                    </div>
+                </div>
+
                 <button class="analyze-btn" onclick="analyzeResults()">Phân tích kết quả</button>
             </div>
             
@@ -429,6 +442,72 @@
             
             const percentage = (completed / totalQuestions) * 100;
             document.getElementById('progressFill').style.width = percentage + '%';
+            
+            // Hiển thị tổng quát CTG khi đủ thông tin cơ bản
+            if (completed >= 4) {
+                updateCTGSummary();
+            }
+        }
+        
+        function updateCTGSummary() {
+            const summaryContainer = document.getElementById('ctg_summary');
+            const summaryContent = document.getElementById('summary_content');
+            
+            let summary = [];
+            
+            // Gò tử cung
+            const contraction = document.querySelector('input[name="uterine_contraction"]:checked')?.value;
+            if (contraction === 'normal') summary.push('🟢 Gò tử cung: < 5 cơn/10 phút');
+            else if (contraction === 'suspicious') summary.push('🟡 Gò tử cung: ≥ 5 cơn/10 phút');
+            else if (contraction === 'prolonged') summary.push('🟡 Gò tử cung: Kéo dài ≥ 2 phút');
+            
+            // Tim thai căn bản
+            const baseline = formData.baseline_fhr;
+            if (baseline === '110-160' && formData.baseline_stable === 'yes') {
+                summary.push('🟢 Tim thai: 110-160 bpm (ổn định)');
+            } else if (baseline === '100-109') {
+                const type = formData.baseline_100_109_type === 'new' ? 'mới xuất hiện' : 'đã có từ trước';
+                summary.push(`🟡 Tim thai: 100-109 bpm (${type})`);
+            } else if (baseline === '160-179') {
+                summary.push('🔴 Tim thai: 160-179 bpm (tăng)');
+            } else if (baseline === '>180') {
+                summary.push('🔴 Tim thai: > 180 bpm (tăng nặng)');
+            } else if (baseline === '<80' || baseline === '80-100') {
+                summary.push('🔴 Tim thai: < 100 bpm (chậm)');
+            } else if (baseline === 'unidentifiable') {
+                summary.push('🟡 Tim thai: Không xác định được baseline');
+            }
+            
+            // Dao động nội tại
+            const variability = formData.variability;
+            if (variability === 'moderate') summary.push('🟢 Dao động: 5-25 bpm (bình thường)');
+            else if (variability === 'minimal') summary.push('🟡/🔴 Dao động: < 5 bpm (giảm)');
+            else if (variability === 'marked') summary.push('🟡/🔴 Dao động: > 25 bpm (tăng)');
+            else if (variability === 'undetectable') summary.push('🔴 Dao động: Không phát hiện được');
+            else if (variability === 'sinusoidal') summary.push('🔴 Dao động: Dạng hình sin');
+            
+            // Nhịp giảm
+            const decelerations = formData.decelerations || [];
+            if (decelerations.includes('none')) {
+                summary.push('🟢 Nhịp giảm: Không có');
+            } else {
+                let decelTypes = [];
+                if (decelerations.includes('early')) decelTypes.push('sớm');
+                if (decelerations.includes('variable')) decelTypes.push('bất định');
+                if (decelerations.includes('late')) decelTypes.push('muộn');
+                if (decelerations.includes('prolonged')) decelTypes.push('kéo dài');
+                summary.push(`🟡/🔴 Nhịp giảm: ${decelTypes.join(', ')}`);
+            }
+            
+            // Nhịp tăng
+            if (formData.acceleration === 'present') {
+                summary.push('🟢 Nhịp tăng: Có');
+            } else if (formData.acceleration === 'absent') {
+                summary.push('🟡 Nhịp tăng: Không có');
+            }
+            
+            summaryContent.innerHTML = summary.join('<br>');
+            summaryContainer.style.display = 'block';
         }
         
         function handleBaselineFHR(element) {
@@ -446,11 +525,11 @@
                         <h4>Tim thai 100-109 bpm này:</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="baseline_100_109_type" value="new" onchange="formData.baseline_100_109_type = this.value">
+                                <input type="radio" name="baseline_100_109_type" value="new" onchange="formData.baseline_100_109_type = this.value; updateProgress();">
                                 Mới xuất hiện (trước đó > 109 bpm)
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="baseline_100_109_type" value="existing" onchange="formData.baseline_100_109_type = this.value">
+                                <input type="radio" name="baseline_100_109_type" value="existing" onchange="formData.baseline_100_109_type = this.value; updateProgress();">
                                 Đã có từ trước (băng ghi trước cũng 100-109 bpm)
                             </label>
                         </div>
@@ -462,7 +541,7 @@
                         <h4>Tim thai có ổn định và phù hợp tuổi thai không?</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="baseline_stable" value="yes" onchange="formData.baseline_stable = this.value">
+                                <input type="radio" name="baseline_stable" value="yes" onchange="formData.baseline_stable = this.value; updateProgress();">
                                 Có - ổn định và phù hợp
                             </label>
                             <label class="radio-item">
@@ -480,19 +559,22 @@
             if (value === '160-179' || value === '>180') {
                 subHTML += `
                     <div class="sub-question">
-                        <h4>Tăng tim thai này có:</h4>
+                        <h4>Tăng tim thai này:</h4>
+                        <p style="color: #e74c3c; font-weight: bold;">⚠️ Tim thai > 160 bpm = Tự động coi là tăng tim thai căn bản</p>
                         <div class="checkbox-group">
                             <label class="checkbox-item">
-                                <input type="checkbox" name="baseline_increase_10" value="yes" onchange="formData.baseline_increase_10 = this.checked">
-                                Tăng > 10% so với băng ghi trước đó
+                                <input type="checkbox" name="baseline_increase_10" value="yes" onchange="formData.baseline_increase_10 = this.checked; updateProgress();" checked disabled>
+                                Tăng > 10% so với băng ghi trước đó (Tự động)
                             </label>
                             <label class="checkbox-item">
-                                <input type="checkbox" name="baseline_increase_20" value="yes" onchange="formData.baseline_increase_20 = this.checked">
+                                <input type="checkbox" name="baseline_increase_20" value="yes" onchange="formData.baseline_increase_20 = this.checked; updateProgress();">
                                 Tăng ≥ 20 bpm so với băng ghi trước đó
                             </label>
                         </div>
                     </div>
                 `;
+                // Tự động set giá trị
+                formData.baseline_increase_10 = true;
             }
             
             if (subHTML) {
@@ -511,16 +593,12 @@
                     <h4>Loại thay đổi:</h4>
                     <div class="checkbox-group">
                         <label class="checkbox-item">
-                            <input type="checkbox" name="baseline_increase_10_normal" value="yes" onchange="formData.baseline_increase_10_normal = this.checked">
+                            <input type="checkbox" name="baseline_increase_10_normal" value="yes" onchange="formData.baseline_increase_10_normal = this.checked; updateProgress();">
                             Tăng > 10% so với băng ghi trước đó
                         </label>
                         <label class="checkbox-item">
-                            <input type="checkbox" name="baseline_increase_20_normal" value="yes" onchange="formData.baseline_increase_20_normal = this.checked">
+                            <input type="checkbox" name="baseline_increase_20_normal" value="yes" onchange="formData.baseline_increase_20_normal = this.checked; updateProgress();">
                             Tăng ≥ 20 bpm so với băng ghi trước đó
-                        </label>
-                        <label class="checkbox-item">
-                            <input type="checkbox" name="baseline_unidentifiable" value="yes" onchange="formData.baseline_unidentifiable = this.checked">
-                            Không xác định được baseline
                         </label>
                     </div>
                 </div>
@@ -545,11 +623,11 @@
                         <h4>Thời gian dao động < 5 bpm:</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="minimal_duration" value="30-50" onchange="formData.minimal_duration = this.value">
+                                <input type="radio" name="minimal_duration" value="30-50" onchange="formData.minimal_duration = this.value; updateProgress();">
                                 30-50 phút
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="minimal_duration" value=">50" onchange="formData.minimal_duration = this.value">
+                                <input type="radio" name="minimal_duration" value=">50" onchange="formData.minimal_duration = this.value; updateProgress();">
                                 > 50 phút
                             </label>
                         </div>
@@ -561,11 +639,11 @@
                         <h4>Thời gian dao động > 25 bpm:</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="marked_duration" value="≤10" onchange="formData.marked_duration = this.value">
+                                <input type="radio" name="marked_duration" value="≤10" onchange="formData.marked_duration = this.value; updateProgress();">
                                 ≤ 10 phút
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="marked_duration" value=">10" onchange="formData.marked_duration = this.value">
+                                <input type="radio" name="marked_duration" value=">10" onchange="formData.marked_duration = this.value; updateProgress();">
                                 > 10 phút
                             </label>
                         </div>
@@ -632,11 +710,11 @@
                         <h4>Nhịp giảm muộn:</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="late_severity" value="mild" onchange="formData.late_severity = this.value">
+                                <input type="radio" name="late_severity" value="mild" onchange="formData.late_severity = this.value; updateProgress();">
                                 Nhẹ
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="late_severity" value="severe" onchange="formData.late_severity = this.value">
+                                <input type="radio" name="late_severity" value="severe" onchange="formData.late_severity = this.value; updateProgress();">
                                 Nặng (> 15 bpm từ baseline)
                             </label>
                         </div>
@@ -648,7 +726,7 @@
                                     Lặp lại
                                 </label>
                                 <label class="radio-item">
-                                    <input type="radio" name="late_repetitive" value="no" onchange="formData.late_repetitive = this.value">
+                                    <input type="radio" name="late_repetitive" value="no" onchange="formData.late_repetitive = this.value; updateProgress();">
                                     Không lặp lại
                                 </label>
                             </div>
@@ -664,11 +742,11 @@
                         <h4>Nhịp giảm kéo dài:</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="prolonged_severity" value="mild" onchange="formData.prolonged_severity = this.value">
+                                <input type="radio" name="prolonged_severity" value="mild" onchange="formData.prolonged_severity = this.value; updateProgress();">
                                 Nhẹ
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="prolonged_severity" value="severe" onchange="formData.prolonged_severity = this.value">
+                                <input type="radio" name="prolonged_severity" value="severe" onchange="formData.prolonged_severity = this.value; updateProgress();">
                                 Nặng (điểm thấp nhất < 80 bpm)
                             </label>
                         </div>
@@ -676,15 +754,15 @@
                             <h4>Thời gian:</h4>
                             <div class="radio-group">
                                 <label class="radio-item">
-                                    <input type="radio" name="prolonged_duration" value="<2" onchange="formData.prolonged_duration = this.value">
+                                    <input type="radio" name="prolonged_duration" value="<2" onchange="formData.prolonged_duration = this.value; updateProgress();">
                                     < 2 phút
                                 </label>
                                 <label class="radio-item">
-                                    <input type="radio" name="prolonged_duration" value="2-3" onchange="formData.prolonged_duration = this.value">
+                                    <input type="radio" name="prolonged_duration" value="2-3" onchange="formData.prolonged_duration = this.value; updateProgress();">
                                     2-3 phút
                                 </label>
                                 <label class="radio-item">
-                                    <input type="radio" name="prolonged_duration" value=">3" onchange="formData.prolonged_duration = this.value">
+                                    <input type="radio" name="prolonged_duration" value=">3" onchange="formData.prolonged_duration = this.value; updateProgress();">
                                     > 3 phút
                                 </label>
                             </div>
@@ -692,15 +770,15 @@
                                 <h4>Thời gian xuất hiện (cho FIGO):</h4>
                                 <div class="radio-group">
                                     <label class="radio-item">
-                                        <input type="radio" name="prolonged_occurrence_time" value="<20" onchange="formData.prolonged_occurrence_time = this.value">
+                                        <input type="radio" name="prolonged_occurrence_time" value="<20" onchange="formData.prolonged_occurrence_time = this.value; updateProgress();">
                                         < 20 phút
                                     </label>
                                     <label class="radio-item">
-                                        <input type="radio" name="prolonged_occurrence_time" value="20-30" onchange="formData.prolonged_occurrence_time = this.value">
+                                        <input type="radio" name="prolonged_occurrence_time" value="20-30" onchange="formData.prolonged_occurrence_time = this.value; updateProgress();">
                                         20-30 phút
                                     </label>
                                     <label class="radio-item">
-                                        <input type="radio" name="prolonged_occurrence_time" value=">30" onchange="formData.prolonged_occurrence_time = this.value">
+                                        <input type="radio" name="prolonged_occurrence_time" value=">30" onchange="formData.prolonged_occurrence_time = this.value; updateProgress();">
                                         > 30 phút
                                     </label>
                                 </div>
@@ -717,11 +795,11 @@
                         <h4>So sánh thời gian:</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="time_comparison" value="baseline_longer" onchange="formData.time_comparison = this.value">
+                                <input type="radio" name="time_comparison" value="baseline_longer" onchange="formData.time_comparison = this.value; updateProgress();">
                                 Thời gian ở tim thai căn bản dài hơn
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="time_comparison" value="deceleration_longer" onchange="formData.time_comparison = this.value">
+                                <input type="radio" name="time_comparison" value="deceleration_longer" onchange="formData.time_comparison = this.value; updateProgress();">
                                 Thời gian trong nhịp giảm dài hơn
                             </label>
                         </div>
@@ -882,12 +960,14 @@
             const checkedFeatures = Array.from(document.querySelectorAll('input[name="worrying_features"]:checked'))
                 .map(cb => cb.value);
             formData.worrying_features = checkedFeatures;
+            updateProgress();
         }
         
         function updateWorryingFeaturesNonRep() {
             const checkedFeatures = Array.from(document.querySelectorAll('input[name="worrying_features_nonrep"]:checked'))
                 .map(cb => cb.value);
             formData.worrying_features_nonrep = checkedFeatures;
+            updateProgress();
         }
         
         function handleAcceleration(element) {
@@ -905,11 +985,11 @@
                         <h4>Nhịp tăng có biến mất sau nhịp giảm không?</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="acceleration_disappear" value="yes" onchange="formData.acceleration_disappear = this.value">
+                                <input type="radio" name="acceleration_disappear" value="yes" onchange="formData.acceleration_disappear = this.value; updateProgress();">
                                 Có - biến mất sau nhịp giảm
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="acceleration_disappear" value="no" onchange="formData.acceleration_disappear = this.value">
+                                <input type="radio" name="acceleration_disappear" value="no" onchange="formData.acceleration_disappear = this.value; updateProgress();">
                                 Không - vẫn có sau nhịp giảm
                             </label>
                         </div>
@@ -967,15 +1047,15 @@
             } else if (baseline === '100-109' && formData.baseline_100_109_type === 'new') {
                 scores.yellow++;
                 reasoningDetails.push('Tim thai 100-109 bpm (mới xuất hiện) = Nghi ngờ (Vàng)');
-            } else if (baseline === '110-160' && (formData.baseline_increase_20_normal || formData.baseline_unidentifiable)) {
+            } else if (baseline === '110-160' && (formData.baseline_increase_20_normal)) {
                 scores.yellow++;
-                reasoningDetails.push('Tim thai tăng ≥ 20 bpm từ đầu chuyển dạ hoặc không xác định được baseline = Nghi ngờ (Vàng)');
-            } else if (baseline === '<80' || baseline === '80-100' || baseline === '>180') {
+                reasoningDetails.push('Tim thai tăng ≥ 20 bpm từ đầu chuyển dạ = Nghi ngờ (Vàng)');
+            } else if (baseline === '<80' || baseline === '80-100') {
                 scores.red++;
-                reasoningDetails.push('Tim thai < 100 bpm hoặc > 160 bpm = Bất thường (Đỏ)');
-            } else if (baseline === '160-179') {
+                reasoningDetails.push('Tim thai < 100 bpm = Bất thường (Đỏ)');
+            } else if (baseline === '160-179' || baseline === '>180') {
                 scores.red++;
-                reasoningDetails.push('Tim thai 160-179 bpm (> 160 bpm) = Bất thường (Đỏ)');
+                reasoningDetails.push('Tim thai > 160 bpm = Bất thường (Đỏ)');
             } else if (baseline === 'unidentifiable') {
                 scores.yellow++;
                 reasoningDetails.push('Không xác định được baseline = Nghi ngờ (Vàng)');
@@ -1010,24 +1090,30 @@
             analyzeDecelerationsNICE(scores, reasoningDetails);
             
             // Kết luận NICE
-            let classification, color;
+            let classification, color, management;
             if (formData.nice_unclassified) {
                 classification = 'KHÔNG PHÂN LOẠI ĐƯỢC';
                 color = 'unclassified';
+                management = 'Cần đánh giá lâm sàng và áp dụng các tiêu chuẩn khác';
                 details.push('Có trường hợp không phân loại được trong NICE 2022');
             } else if (scores.red > 0 || scores.yellow >= 2) {
                 classification = 'BẤT THƯỜNG';
                 color = 'abnormal';
+                management = 'Đánh giá toàn diện bao gồm mẹ; hồi sinh, hồi sức; cân nhắc kích thích đầu thai, loại trừ tai biến cấp và cân nhắc CDTK ngay';
                 details.push('1 tiêu chí đỏ hoặc ≥ 2 tiêu chí vàng → Cần can thiệp ngay');
             } else if (scores.yellow === 1) {
                 classification = 'NGHI NGỜ';
                 color = 'suspicious';
+                management = 'Đánh giá toàn diện, bao gồm cả mẹ; hỏi căn nguyên, hồi sức; cân nhắc kích thích đầu thai hoặc thúc đẩy/chuyển dạ/CTDK';
                 details.push('1 tiêu chí vàng → Đánh giá toàn diện, theo dõi sát');
             } else {
                 classification = 'BÌNH THƯỜNG';
                 color = 'normal';
+                management = 'Tiếp tục theo dõi';
                 details.push('4 tiêu chí đều trắng → Tiếp tục theo dõi');
             }
+            
+            details.push(`🔧 Xử trí: ${management}`);
             
             return {
                 classification,
@@ -1178,10 +1264,10 @@
                 reasoningDetails.push('Tim thai 110-160 bpm ổn định = An tâm');
             } else if (baseline === '100-109' || baseline === '160-179') {
                 nonReassuring++;
-                reasoningDetails.push('Tim thai 100-109 bpm hoặc 161-180 bpm = Không an tâm');
+                reasoningDetails.push('Tim thai 100-109 bpm hoặc 160-179 bpm = Không an tâm');
             } else if (baseline === '<80' || baseline === '80-100' || baseline === '>180' || baseline === 'unidentifiable') {
                 abnormal++;
-                reasoningDetails.push('Tim thai < 100 bpm hoặc > 180 bpm = Bất thường');
+                reasoningDetails.push('Tim thai < 100 bpm hoặc > 180 bpm hoặc không xác định được = Bất thường');
             } else {
                 nonReassuring++;
                 reasoningDetails.push('Tim thai không ổn định = Không an tâm');
@@ -1217,15 +1303,16 @@
                 nonReassuring++;
                 reasoningDetails.push('Nhịp giảm sớm = Không an tâm');
             } else if (decelerations.includes('variable')) {
-                // Nhịp giảm biến đổi không điển hình = bất thường
-                if ((formData.variable_severity === 'severe') || 
-                    (formData.worrying_features && formData.worrying_features.length > 0) ||
-                    (formData.worrying_features_nonrep && formData.worrying_features_nonrep.length > 0)) {
+                // Nhịp giảm biến đổi có dấu hiệu đáng ngại = không điển hình = bất thường
+                const hasWorryingFeatures = (formData.worrying_features && formData.worrying_features.length > 0) ||
+                                          (formData.worrying_features_nonrep && formData.worrying_features_nonrep.length > 0);
+                
+                if (formData.variable_severity === 'severe' || hasWorryingFeatures) {
                     abnormal++;
-                    reasoningDetails.push('Nhịp giảm biến đổi không điển hình = Bất thường');
+                    reasoningDetails.push('Nhịp giảm biến đổi không điển hình (nặng hoặc có đặc điểm đáng ngại) = Bất thường');
                 } else {
                     nonReassuring++;
-                    reasoningDetails.push('Nhịp giảm biến đổi = Không an tâm');
+                    reasoningDetails.push('Nhịp giảm biến đổi điển hình = Không an tâm');
                 }
             } else if (decelerations.includes('late')) {
                 abnormal++;
@@ -1355,20 +1442,25 @@
             }
             
             // Kết luận
-            let classification, color;
+            let classification, color, management;
             if (pathological > 0) {
                 classification = 'BỆNH LÝ';
                 color = 'abnormal';
+                management = 'Hành động ngay để khắc phục tình trạng thiếu oxy máu nếu điều này không thể chẩn đoán chậm trễ thai kỳ. Trong tình huống cấp cứu (sa dây rốn, vỡ tử cung, nhau bong non...), cần CDTK ngay lập tức';
                 details.push('Thai nhi có khả năng cao bị thiếu oxy/toan máu');
             } else if (suspicious > 0) {
                 classification = 'NGHI NGỜ';
                 color = 'suspicious';
+                management = 'Xác định và khắc phục nguyên nhân; theo dõi sát hoặc đánh giá thêm tình trạng oxy thai bằng các phương pháp khác';
                 details.push('Thai nhi có nguy cơ (thấp) bị thiếu oxy/toan máu');
             } else {
                 classification = 'BÌNH THƯỜNG';
                 color = 'normal';
+                management = 'Không cần can thiệp';
                 details.push('Thai nhi không bị thiếu oxy/thoái toan');
             }
+            
+            details.push(`🔧 Xử trí: ${management}`);
             
             return {
                 classification,
@@ -1487,17 +1579,20 @@
                 };
             }
             
-            // Thiếu oxy diễn tiến mất bù
+            // Đánh giá các yếu tố thiếu oxy diễn tiến
             const hasIncreasedBaseline = formData.baseline_increase_10 || formData.baseline_increase_20 || 
                                        formData.baseline_increase_10_normal || formData.baseline_increase_20_normal;
             const hasAbnormalVariability = variability === 'minimal' || variability === 'marked';
             const hasRecurrentDecelerations = (decelerations.includes('variable') && formData.variable_repetitive === 'yes') ||
                                              (decelerations.includes('late') && formData.late_repetitive === 'yes');
+            const hasLostAcceleration = (formData.acceleration_disappear === 'yes' || formData.acceleration === 'absent');
+            const hasBaselineLonger = formData.time_comparison === 'baseline_longer';
             
+            // Thiếu oxy diễn tiến mất bù (đủ 3 tiêu chí)
             if (hasIncreasedBaseline && hasAbnormalVariability && hasRecurrentDecelerations) {
-                reasoningDetails.push('Tăng tim thai căn bản (tăng > 10% hoặc ≥ 20 bpm)');
-                reasoningDetails.push('Dao động nội tại bất thường (< 5 bpm hoặc > 25 bpm)');
-                reasoningDetails.push('Nhịp giảm lặp lại (bất định hoặc muộn)');
+                reasoningDetails.push('✓ Tăng tim thai căn bản (tăng > 10% hoặc ≥ 20 bpm)');
+                reasoningDetails.push('✓ Dao động nội tại bất thường (< 5 bpm hoặc > 25 bpm)');
+                reasoningDetails.push('✓ Nhịp giảm lặp lại (bất định hoặc muộn)');
                 reasoningDetails.push('Tim thai căn bản có thể giảm dần kiểu bậc thang → Nguy cơ cao');
                 return {
                     classification: 'THIẾU OXY DIỄN TIẾN MẤT BÙ',
@@ -1507,13 +1602,11 @@
                 };
             }
             
-            // Thiếu oxy diễn tiến còn bù
-            if (hasIncreasedBaseline && variability === 'moderate' && 
-                formData.time_comparison === 'baseline_longer' &&
-                (formData.acceleration_disappear === 'yes' || formData.acceleration === 'absent')) {
-                reasoningDetails.push('Tăng tim thai căn bản + dao động nội tại bình thường');
-                reasoningDetails.push('Thời gian ở baseline > thời gian trong nhịp giảm');
-                reasoningDetails.push('Mất nhịp tăng sau nhịp giảm');
+            // Thiếu oxy diễn tiến còn bù (đủ 4 tiêu chí)
+            if (hasIncreasedBaseline && variability === 'moderate' && hasBaselineLonger && hasLostAcceleration) {
+                reasoningDetails.push('✓ Tăng tim thai căn bản + dao động nội tại bình thường');
+                reasoningDetails.push('✓ Thời gian ở baseline > thời gian trong nhịp giảm');
+                reasoningDetails.push('✓ Mất nhịp tăng sau nhịp giảm');
                 reasoningDetails.push('Cơ thể thai nhi vẫn đang bù trừ được → Theo dõi 30-60 phút');
                 return {
                     classification: 'THIẾU OXY DIỄN TIẾN CÒN BÙ',
@@ -1523,7 +1616,55 @@
                 };
             }
             
-            reasoningDetails.push('Không có dấu hiệu rõ ràng của các pattern thiếu oxy');
+            // Gợi ý thiếu oxy diễn tiến mất bù (có 2/3 tiêu chí)
+            let misbufferCount = 0;
+            if (hasIncreasedBaseline) misbufferCount++;
+            if (hasAbnormalVariability) misbufferCount++;
+            if (hasRecurrentDecelerations) misbufferCount++;
+            
+            if (misbufferCount >= 2) {
+                let presentCriteria = [];
+                if (hasIncreasedBaseline) presentCriteria.push('Tăng tim thai căn bản');
+                if (hasAbnormalVariability) presentCriteria.push('Dao động nội tại bất thường');
+                if (hasRecurrentDecelerations) presentCriteria.push('Nhịp giảm lặp lại');
+                
+                reasoningDetails.push('Có 2/3 tiêu chí thiếu oxy diễn tiến mất bù:');
+                reasoningDetails.push('✓ ' + presentCriteria.join(', ✓ '));
+                reasoningDetails.push('→ Theo dõi sát, chuẩn bị can thiệp');
+                return {
+                    classification: 'GỢI Ý THIẾU OXY DIỄN TIẾN MẤT BÙ',
+                    color: 'suspicious',
+                    details: reasoningDetails,
+                    system: 'Phân loại Sinh lý'
+                };
+            }
+            
+            // Gợi ý thiếu oxy diễn tiến còn bù (có 2-3/4 tiêu chí)
+            let compensatedCount = 0;
+            if (hasIncreasedBaseline) compensatedCount++;
+            if (variability === 'moderate') compensatedCount++;
+            if (hasBaselineLonger) compensatedCount++;
+            if (hasLostAcceleration) compensatedCount++;
+            
+            if (compensatedCount >= 2) {
+                let presentCriteria = [];
+                if (hasIncreasedBaseline) presentCriteria.push('Tăng tim thai căn bản');
+                if (variability === 'moderate') presentCriteria.push('Dao động nội tại bình thường');
+                if (hasBaselineLonger) presentCriteria.push('Baseline dài hơn nhịp giảm');
+                if (hasLostAcceleration) presentCriteria.push('Mất nhịp tăng');
+                
+                reasoningDetails.push(`Có ${compensatedCount}/4 tiêu chí thiếu oxy diễn tiến còn bù:`);
+                reasoningDetails.push('✓ ' + presentCriteria.join(', ✓ '));
+                reasoningDetails.push('→ Thai nhi đang cố gắng bù trừ, theo dõi 30-60 phút');
+                return {
+                    classification: 'GỢI Ý THIẾU OXY DIỄN TIẾN CÒN BÙ',
+                    color: 'suspicious',
+                    details: reasoningDetails,
+                    system: 'Phân loại Sinh lý'
+                };
+            }
+            
+            reasoningDetails.push('Không có đủ dấu hiệu của các pattern thiếu oxy đặc trưng');
             reasoningDetails.push('Thai nhi có thể đang trong tình trạng oxy hóa bình thường');
             return {
                 classification: 'KHÔNG XÁC ĐỊNH THIẾU OXY',
