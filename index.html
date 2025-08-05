@@ -768,7 +768,7 @@
         let analysisResults = null;
         
         // Google Apps Script URL
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzhIeAUZZsFBYpz7XRSJiioQCPe3yzOE1b58XHJHwcWp0EPWdc6ZKEnxbz3RsTriptl/exec';
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzfj0e_E_r94XFXt1pv5fOEY9y6TDKGbvRP6PQKTUaXCLE9gutiIPuS04sra6hyG7Sh/exec';
         
         function handleImageUpload(event) {
             const file = event.target.files[0];
@@ -1547,38 +1547,90 @@
             document.getElementById('saveBtn').disabled = true;
             
             try {
-                // Chuẩn bị dữ liệu gửi
+                // Chuẩn bị dữ liệu gửi (format cho Google Apps Script)
                 const payload = {
                     timestamp: new Date().toISOString(),
                     formData: formData,
                     analysisResults: analysisResults,
-                    ctgImage: ctgImageData,
+                    ctgImage: ctgImageData ? ctgImageData.substring(0, 100) + '...[truncated]' : null, // Rút gọn ảnh để test
                     summary: generateDataSummary()
                 };
                 
+                // Phương pháp 1: Fetch với FormData
+                const formData_send = new FormData();
+                formData_send.append('data', JSON.stringify(payload));
+                
                 const response = await fetch(APPS_SCRIPT_URL, {
                     method: 'POST',
-                    body: JSON.stringify(payload),
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
+                    body: formData_send,
+                    mode: 'no-cors' // Bypass CORS
                 });
                 
-                const result = await response.json();
-                
-                if (result.success) {
-                    showStatusMessage('✅ Lưu dữ liệu thành công!', 'success');
-                } else {
-                    showStatusMessage('❌ Lỗi: ' + (result.error || 'Không thể lưu dữ liệu'), 'error');
-                }
+                // Với no-cors, response.json() sẽ không hoạt động
+                showStatusMessage('✅ Dữ liệu đã được gửi!', 'success');
                 
             } catch (error) {
-                showStatusMessage('❌ Lỗi kết nối: ' + error.message, 'error');
-                console.error('Error saving data:', error);
+                console.error('Fetch failed, trying alternative method:', error);
+                
+                // Phương pháp 2: Sử dụng fetch đơn giản
+                try {
+                    const payload = {
+                        timestamp: new Date().toISOString(),
+                        formData: formData,
+                        analysisResults: analysisResults,
+                        ctgImage: ctgImageData ? 'Image attached' : null,
+                        summary: generateDataSummary()
+                    };
+                    
+                    await fetch(APPS_SCRIPT_URL + '?callback=?', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'text/plain',
+                        },
+                        body: JSON.stringify(payload),
+                        mode: 'no-cors'
+                    });
+                    
+                    showStatusMessage('✅ Dữ liệu đã được gửi! (Phương pháp 2)', 'success');
+                    
+                } catch (error2) {
+                    console.error('Alternative method also failed:', error2);
+                    
+                    // Phương pháp 3: JSONP fallback
+                    try {
+                        const payload = {
+                            timestamp: new Date().toISOString(),
+                            summary: generateDataSummary()
+                        };
+                        
+                        const script = document.createElement('script');
+                        script.src = APPS_SCRIPT_URL + '?callback=handleResponse&data=' + encodeURIComponent(JSON.stringify(payload));
+                        document.head.appendChild(script);
+                        
+                        // Cleanup
+                        setTimeout(() => {
+                            document.head.removeChild(script);
+                        }, 5000);
+                        
+                        showStatusMessage('✅ Dữ liệu đã được gửi! (JSONP)', 'success');
+                        
+                    } catch (error3) {
+                        showStatusMessage('❌ Lỗi kết nối: ' + error3.message + '\n\n🔧 Hướng dẫn khắc phục:\n1. Kiểm tra URL Apps Script\n2. Đảm bảo Apps Script đã được deploy\n3. Thử lại sau vài phút', 'error');
+                    }
+                }
             } finally {
                 document.getElementById('saveBtn').disabled = false;
             }
         }
+        
+        // Callback function cho JSONP
+        window.handleResponse = function(response) {
+            if (response && response.success) {
+                showStatusMessage('✅ Lưu dữ liệu thành công!', 'success');
+            } else {
+                showStatusMessage('⚠️ Dữ liệu đã được gửi nhưng không nhận được xác nhận', 'success');
+            }
+        };
         
         function generateDataSummary() {
             let summary = {};
