@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CTG Analyzer - Phân tích CTG đa chiều</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -266,6 +267,56 @@
             box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
         }
         
+        .export-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #27ae60, #219a52);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+        
+        .export-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+        }
+        
+        .export-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .reset-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+        
+        .reset-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+        }
+        
+        .reset-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
         .progress-bar {
             width: 100%;
             height: 6px;
@@ -282,6 +333,85 @@
             width: 0%;
         }
         
+        .image-upload {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border: 2px dashed #3498db;
+            text-align: center;
+        }
+        
+        .image-upload input[type="file"] {
+            margin: 10px 0;
+        }
+        
+        .image-display {
+            position: sticky;
+            top: 20px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border: 2px solid #3498db;
+            z-index: 100;
+        }
+        
+        .image-display h4 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+            text-align: center;
+        }
+        
+        .image-display img {
+            width: 100%;
+            height: auto;
+            max-height: 200px;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .image-display .no-image {
+            text-align: center;
+            color: #7f8c8d;
+            font-style: italic;
+            padding: 20px;
+        }
+        
+        .summary-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+            margin-bottom: 15px;
+        }
+        
+        .summary-item {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 6px;
+            border-left: 3px solid #dee2e6;
+        }
+        
+        .summary-item.selected {
+            border-left-color: #3498db;
+            background: #e8f4fd;
+        }
+        
+        .summary-item strong {
+            color: #2c3e50;
+        }
+        
+        .summary-detail {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-top: 4px;
+        }
+        
         @media (max-width: 768px) {
             .main-content {
                 flex-direction: column;
@@ -293,6 +423,15 @@
             
             .radio-group {
                 flex-direction: column;
+            }
+            
+            .image-display {
+                position: relative;
+                top: auto;
+            }
+            
+            .image-display img {
+                max-height: 150px;
             }
         }
     </style>
@@ -308,6 +447,21 @@
             <div class="form-section">
                 <div class="progress-bar">
                     <div class="progress-fill" id="progressFill"></div>
+                </div>
+                
+                <!-- Upload ảnh CTG -->
+                <div class="image-upload">
+                    <h3 style="color: #2c3e50; margin-bottom: 10px;">📁 Tải lên ảnh CTG</h3>
+                    <p style="color: #6c757d; margin-bottom: 10px;">Chọn file ảnh CTG để tham khảo khi phân tích</p>
+                    <input type="file" id="ctgImage" accept="image/*" onchange="handleImageUpload(event)">
+                </div>
+                
+                <!-- Hiển thị ảnh CTG cố định -->
+                <div class="image-display" id="imageDisplay">
+                    <h4>🖼️ Ảnh CTG tham khảo</h4>
+                    <div id="stickyImageContainer">
+                        <div class="no-image">Chưa có ảnh CTG. Tải lên ảnh để hiển thị tại đây.</div>
+                    </div>
                 </div>
                 
                 <!-- Gò tử cung -->
@@ -450,13 +604,15 @@
                 </div>
 
                 <div id="ctg_summary" class="form-group" style="display: none;">
-                    <h3>📋 Tổng quát CTG</h3>
-                    <div id="summary_content" style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #3498db;">
+                    <h3>📋 Tổng quan CTG</h3>
+                    <div id="summary_content" class="summary-section">
                         <!-- Summary sẽ được thêm vào đây -->
                     </div>
                 </div>
 
-                <button class="analyze-btn" onclick="analyzeResults()">Phân tích kết quả</button>
+                <button class="analyze-btn" onclick="analyzeResults()">🔍 Phân tích kết quả</button>
+                <button class="export-btn" id="exportBtn" onclick="exportToPDF()" disabled>📄 Xuất báo cáo PDF</button>
+                <button class="reset-btn" id="resetBtn" onclick="resetForm()" disabled>🔄 Đánh giá tiếp</button>
             </div>
             
             <div class="results-section">
@@ -472,6 +628,21 @@
 
     <script>
         let formData = {};
+        let ctgImageData = null;
+        let analysisResults = null;
+        
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    ctgImageData = e.target.result;
+                    const container = document.getElementById('stickyImageContainer');
+                    container.innerHTML = `<img src="${e.target.result}" alt="CTG Image">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
         
         function updateProgress() {
             const totalQuestions = 5;
@@ -487,7 +658,7 @@
             document.getElementById('progressFill').style.width = percentage + '%';
             
             // Hiển thị tổng quát CTG khi đủ thông tin cơ bản
-            if (completed >= 4) {
+            if (completed >= 3) {
                 updateCTGSummary();
             }
         }
@@ -496,60 +667,173 @@
             const summaryContainer = document.getElementById('ctg_summary');
             const summaryContent = document.getElementById('summary_content');
             
-            let summary = [];
+            let summaryItems = [];
             
             // Gò tử cung
-            const contraction = document.querySelector('input[name="uterine_contraction"]:checked')?.value;
-            if (contraction === 'normal') summary.push('🟢 Gò tử cung: < 5 cơn/10 phút');
-            else if (contraction === 'suspicious') summary.push('🟡 Gò tử cung: ≥ 5 cơn/10 phút');
-            else if (contraction === 'prolonged') summary.push('🟡 Gò tử cung: Kéo dài ≥ 2 phút');
-            
-            // Tim thai căn bản
-            const baseline = formData.baseline_fhr;
-            if (baseline === '110-160' && formData.baseline_stable === 'yes') {
-                summary.push('🟢 Tim thai: 110-160 bpm (ổn định)');
-            } else if (baseline === '100-109') {
-                const type = formData.baseline_100_109_type === 'new' ? 'mới xuất hiện' : 'đã có từ trước';
-                summary.push(`🟡 Tim thai: 100-109 bpm (${type})`);
-            } else if (baseline === '160-179') {
-                summary.push('🔴 Tim thai: 160-179 bpm (tăng)');
-            } else if (baseline === '>180') {
-                summary.push('🔴 Tim thai: > 180 bpm (tăng nặng)');
-            } else if (baseline === '<80' || baseline === '80-100') {
-                summary.push('🔴 Tim thai: < 100 bpm (chậm)');
-            } else if (baseline === 'unidentifiable') {
-                summary.push('🟡 Tim thai: Không xác định được baseline');
+            const contraction = document.querySelector('input[name="uterine_contraction"]:checked');
+            if (contraction) {
+                let status = '';
+                let detail = '';
+                if (contraction.value === 'normal') {
+                    status = '🟢 Bình thường';
+                    detail = 'Tần suất co bóp < 5 cơn/10 phút';
+                } else if (contraction.value === 'suspicious') {
+                    status = '🟡 Tăng';
+                    detail = 'Tần suất co bóp ≥ 5 cơn/10 phút - cần theo dõi';
+                } else if (contraction.value === 'prolonged') {
+                    status = '🟡 Kéo dài';
+                    detail = 'Cơn co kéo dài ≥ 2 phút - có thể ảnh hưởng lưu lượng máu';
+                }
+                summaryItems.push(`<div class="summary-item selected"><strong>Gò tử cung:</strong> ${status}<div class="summary-detail">${detail}</div></div>`);
             }
             
-            // Dao động nội tại
-            const variability = formData.variability;
-            if (variability === 'moderate') summary.push('🟢 Dao động: 5-25 bpm (bình thường)');
-            else if (variability === 'minimal') summary.push('🟡/🔴 Dao động: < 5 bpm (giảm)');
-            else if (variability === 'marked') summary.push('🟡/🔴 Dao động: > 25 bpm (tăng)');
-            else if (variability === 'undetectable') summary.push('🔴 Dao động: Không phát hiện được');
-            else if (variability === 'sinusoidal') summary.push('🔴 Dao động: Dạng hình sin');
+            // Tim thai căn bản - chi tiết hơn
+            const baseline = formData.baseline_fhr;
+            if (baseline) {
+                let status = '';
+                let detail = '';
+                if (baseline === '110-160' && formData.baseline_stable === 'yes') {
+                    status = '🟢 Bình thường (110-160 bpm)';
+                    detail = 'Tim thai ổn định và phù hợp tuổi thai';
+                } else if (baseline === '100-109') {
+                    const type = formData.baseline_100_109_type === 'new' ? 'mới xuất hiện' : 'đã có từ trước';
+                    status = `🟡 Chậm nhẹ (100-109 bpm)`;
+                    detail = `Tim thai chậm ${type} - cần theo dõi sát`;
+                } else if (baseline === '160-179') {
+                    status = '🔴 Tăng nhẹ (160-179 bpm)';
+                    detail = 'Tim thai tăng - có thể do thiếu oxy, nhiễm trùng hoặc thuốc';
+                    if (formData.baseline_increase_20) {
+                        detail += ' • Tăng ≥20 bpm so với trước';
+                    }
+                } else if (baseline === '>180') {
+                    status = '🔴 Tăng nặng (>180 bpm)';
+                    detail = 'Tim thai tăng nghiêm trọng - cần can thiệp ngay';
+                } else if (baseline === '<80' || baseline === '80-100') {
+                    status = '🔴 Chậm nặng (<100 bpm)';
+                    detail = 'Tim thai chậm nghiêm trọng - nguy cơ thiếu oxy thai nhi';
+                } else if (baseline === 'unidentifiable') {
+                    status = '🟡 Không xác định được';
+                    detail = 'Không thể xác định tim thai căn bản - cần cải thiện tín hiệu';
+                }
+                summaryItems.push(`<div class="summary-item selected"><strong>Tim thai căn bản:</strong> ${status}<div class="summary-detail">${detail}</div></div>`);
+            }
             
-            // Nhịp giảm
+            // Dao động nội tại - chi tiết hơn
+            const variability = formData.variability;
+            if (variability) {
+                let status = '';
+                let detail = '';
+                if (variability === 'moderate') {
+                    status = '🟢 Bình thường (6-25 bpm)';
+                    detail = 'Dao động nội tại tốt - hệ thần kinh thai nhi hoạt động bình thường';
+                } else if (variability === 'minimal') {
+                    status = '🟡/🔴 Giảm (3-5 bpm)';
+                    if (formData.minimal_duration === '30-50') {
+                        detail = 'Dao động giảm trong 30-50 phút - theo dõi sát';
+                    } else if (formData.minimal_duration === '>50') {
+                        detail = 'Dao động giảm >50 phút - nguy cơ thiếu oxy thai nhi';
+                    } else {
+                        detail = 'Dao động nội tại giảm - cần đánh giá thời gian';
+                    }
+                } else if (variability === 'marked') {
+                    status = '🟡/🔴 Tăng (>25 bpm)';
+                    if (formData.marked_duration === '≤10') {
+                        detail = 'Dao động tăng ≤10 phút - có thể do hoạt động thai nhi';
+                    } else if (formData.marked_duration === '>10') {
+                        detail = 'Dao động tăng >10 phút - cần theo dõi sát';
+                    } else {
+                        detail = 'Dao động nội tại tăng - cần đánh giá thời gian';
+                    }
+                } else if (variability === 'undetectable') {
+                    status = '🔴 Không phát hiện được';
+                    detail = 'Mất hoàn toàn dao động nội tại - nguy cơ cao thiếu oxy thai nhi';
+                } else if (variability === 'sinusoidal') {
+                    status = '🔴 Dạng hình sin';
+                    detail = 'Biểu đồ dạng hình sin - nguy cơ rất cao, cần can thiệp ngay';
+                }
+                summaryItems.push(`<div class="summary-item selected"><strong>Dao động nội tại:</strong> ${status}<div class="summary-detail">${detail}</div></div>`);
+            }
+            
+            // Nhịp giảm - chi tiết hơn
             const decelerations = formData.decelerations || [];
-            if (decelerations.includes('none')) {
-                summary.push('🟢 Nhịp giảm: Không có');
-            } else {
-                let decelTypes = [];
-                if (decelerations.includes('early')) decelTypes.push('sớm');
-                if (decelerations.includes('variable')) decelTypes.push('bất định');
-                if (decelerations.includes('late')) decelTypes.push('muộn');
-                if (decelerations.includes('prolonged')) decelTypes.push('kéo dài');
-                summary.push(`🟡/🔴 Nhịp giảm: ${decelTypes.join(', ')}`);
+            if (decelerations.length > 0) {
+                if (decelerations.includes('none')) {
+                    summaryItems.push(`<div class="summary-item selected"><strong>Nhịp giảm:</strong> 🟢 Không có<div class="summary-detail">Không có nhịp giảm bất thường</div></div>`);
+                } else {
+                    let types = [];
+                    let details = [];
+                    
+                    if (decelerations.includes('early')) {
+                        types.push('Sớm');
+                        details.push('Nhịp giảm sớm - thường lành tính');
+                    }
+                    if (decelerations.includes('variable')) {
+                        types.push('Bất định');
+                        if (formData.variable_severity === 'severe') {
+                            details.push('Nhịp giảm bất định nặng - nguy cơ thiếu oxy');
+                        } else {
+                            details.push('Nhịp giảm bất định nhẹ');
+                        }
+                        if (formData.variable_repetitive === 'yes') {
+                            details.push('• Lặp lại');
+                            if (formData.worrying_features && formData.worrying_features.length > 0) {
+                                details.push('• Có đặc điểm đáng ngại');
+                            }
+                        }
+                    }
+                    if (decelerations.includes('late')) {
+                        types.push('Muộn');
+                        if (formData.late_severity === 'severe') {
+                            details.push('Nhịp giảm muộn nặng - thiếu oxy thai nhi');
+                        } else {
+                            details.push('Nhịp giảm muộn - nguy cơ thiếu oxy');
+                        }
+                        if (formData.late_repetitive === 'yes') {
+                            details.push('• Lặp lại');
+                        }
+                    }
+                    if (decelerations.includes('prolonged')) {
+                        types.push('Kéo dài');
+                        if (formData.prolonged_duration === '>3') {
+                            details.push('Kéo dài >3 phút - tim thai chậm cấp');
+                        } else {
+                            details.push('Nhịp giảm kéo dài');
+                        }
+                    }
+                    
+                    summaryItems.push(`<div class="summary-item selected"><strong>Nhịp giảm:</strong> 🟡/🔴 ${types.join(', ')}<div class="summary-detail">${details.join(' ')}</div></div>`);
+                }
             }
             
             // Nhịp tăng
-            if (formData.acceleration === 'present') {
-                summary.push('🟢 Nhịp tăng: Có');
-            } else if (formData.acceleration === 'absent') {
-                summary.push('🟡 Nhịp tăng: Không có');
+            if (formData.acceleration) {
+                let status = '';
+                let detail = '';
+                if (formData.acceleration === 'present') {
+                    status = '🟢 Có';
+                    detail = 'Có nhịp tăng - dấu hiệu tốt của thai nhi khỏe mạnh';
+                    if (formData.acceleration_disappear === 'yes') {
+                        detail += ' • Biến mất sau nhịp giảm - có thể do thiếu oxy';
+                    }
+                } else {
+                    status = '🟡 Không có';
+                    detail = 'Vắng mặt nhịp tăng - cần theo dõi sát';
+                }
+                summaryItems.push(`<div class="summary-item selected"><strong>Nhịp tăng:</strong> ${status}<div class="summary-detail">${detail}</div></div>`);
             }
             
-            summaryContent.innerHTML = summary.join('<br>');
+            // Thêm thông tin so sánh thời gian
+            if (formData.time_comparison) {
+                let detail = '';
+                if (formData.time_comparison === 'baseline_longer') {
+                    detail = 'Thời gian ở tim thai căn bản dài hơn thời gian trong nhịp giảm - tình trạng tương đối ổn định';
+                } else {
+                    detail = 'Thời gian trong nhịp giảm dài hơn thời gian ở baseline - nguy cơ thiếu oxy';
+                }
+                summaryItems.push(`<div class="summary-item"><strong>So sánh thời gian:</strong><div class="summary-detail">${detail}</div></div>`);
+            }
+            
+            summaryContent.innerHTML = summaryItems.join('');
             summaryContainer.style.display = 'block';
         }
         
@@ -1061,7 +1345,64 @@
                 physiological: analyzePhysiological()
             };
             
+            analysisResults = results;
             displayResults(results);
+            
+            // Enable export and reset buttons
+            document.getElementById('exportBtn').disabled = false;
+            document.getElementById('resetBtn').disabled = false;
+        }
+        
+        function resetForm() {
+            if (confirm('Bạn có chắc chắn muốn xóa toàn bộ dữ liệu và bắt đầu đánh giá mới?')) {
+                // Reset form data
+                formData = {};
+                ctgImageData = null;
+                analysisResults = null;
+                
+                // Reset all form inputs
+                document.querySelectorAll('input[type="radio"]').forEach(input => {
+                    input.checked = false;
+                    input.closest('.radio-item').classList.remove('selected');
+                });
+                
+                document.querySelectorAll('input[type="checkbox"]').forEach(input => {
+                    input.checked = false;
+                    input.closest('.checkbox-item').classList.remove('selected');
+                });
+                
+                document.getElementById('ctgImage').value = '';
+                
+                // Reset image display
+                const container = document.getElementById('stickyImageContainer');
+                container.innerHTML = '<div class="no-image">Chưa có ảnh CTG. Tải lên ảnh để hiển thị tại đây.</div>';
+                
+                // Hide all sub-questions
+                document.querySelectorAll('[id$="_sub_questions"]').forEach(element => {
+                    element.classList.add('hidden');
+                    element.innerHTML = '';
+                });
+                
+                // Reset progress bar
+                document.getElementById('progressFill').style.width = '0%';
+                
+                // Hide summary
+                document.getElementById('ctg_summary').style.display = 'none';
+                
+                // Reset results display
+                document.getElementById('results_container').innerHTML = `
+                    <p style="text-align: center; color: #7f8c8d; font-style: italic;">
+                        Vui lòng điền đầy đủ thông tin để xem kết quả phân tích
+                    </p>
+                `;
+                
+                // Disable buttons
+                document.getElementById('exportBtn').disabled = true;
+                document.getElementById('resetBtn').disabled = true;
+                
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
         }
         
         function analyzeNICE() {
@@ -1764,6 +2105,163 @@
             });
             
             container.innerHTML = html;
+        }
+        
+        function exportToPDF() {
+            if (!analysisResults) {
+                alert('Vui lòng phân tích kết quả trước khi xuất PDF');
+                return;
+            }
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Thiết lập font cho tiếng Việt (sử dụng font có sẵn)
+            doc.setFont('helvetica', 'normal');
+            
+            let yPosition = 20;
+            const pageWidth = doc.internal.pageSize.width;
+            const margin = 20;
+            const maxWidth = pageWidth - 2 * margin;
+            
+            // Header
+            doc.setFontSize(18);
+            doc.text('BÁO CÁO PHÂN TÍCH CTG', pageWidth / 2, yPosition, { align: 'center' });
+            yPosition += 15;
+            
+            doc.setFontSize(12);
+            doc.text('Ngày: ' + new Date().toLocaleDateString('vi-VN'), pageWidth / 2, yPosition, { align: 'center' });
+            yPosition += 20;
+            
+            // Thêm ảnh CTG nếu có
+            if (ctgImageData) {
+                try {
+                    doc.text('Ảnh CTG:', margin, yPosition);
+                    yPosition += 10;
+                    doc.addImage(ctgImageData, 'JPEG', margin, yPosition, 100, 60);
+                    yPosition += 70;
+                } catch (error) {
+                    console.log('Không thể thêm ảnh vào PDF:', error);
+                }
+            }
+            
+            // Tóm tắt CTG
+            doc.setFontSize(14);
+            doc.text('1. TÓM TẮT THÔNG SỐ CTG', margin, yPosition);
+            yPosition += 10;
+            
+            doc.setFontSize(10);
+            
+            // Tạo summary text từ formData
+            let summaryText = '';
+            
+            // Gò tử cung
+            const contraction = document.querySelector('input[name="uterine_contraction"]:checked')?.value;
+            if (contraction === 'normal') summaryText += '• Gò tử cung: < 5 cơn/10 phút\n';
+            else if (contraction === 'suspicious') summaryText += '• Gò tử cung: ≥ 5 cơn/10 phút\n';
+            else if (contraction === 'prolonged') summaryText += '• Gò tử cung: Kéo dài ≥ 2 phút\n';
+            
+            // Tim thai căn bản
+            const baseline = formData.baseline_fhr;
+            if (baseline) {
+                summaryText += `• Tim thai căn bản: ${baseline} bpm`;
+                if (formData.baseline_stable === 'yes') summaryText += ' (ổn định)';
+                else if (formData.baseline_100_109_type) summaryText += ` (${formData.baseline_100_109_type === 'new' ? 'mới xuất hiện' : 'đã có từ trước'})`;
+                summaryText += '\n';
+            }
+            
+            // Dao động nội tại
+            const variability = formData.variability;
+            if (variability) {
+                let varText = '• Dao động nội tại: ';
+                if (variability === 'moderate') varText += '6-25 bpm (bình thường)';
+                else if (variability === 'minimal') varText += '3-5 bpm (giảm)';
+                else if (variability === 'marked') varText += '>25 bpm (tăng)';
+                else if (variability === 'undetectable') varText += 'Không phát hiện được';
+                else if (variability === 'sinusoidal') varText += 'Dạng hình sin';
+                summaryText += varText + '\n';
+            }
+            
+            // Nhịp giảm
+            const decelerations = formData.decelerations || [];
+            if (decelerations.length > 0) {
+                if (decelerations.includes('none')) {
+                    summaryText += '• Nhịp giảm: Không có\n';
+                } else {
+                    let types = [];
+                    if (decelerations.includes('early')) types.push('sớm');
+                    if (decelerations.includes('variable')) types.push('bất định');
+                    if (decelerations.includes('late')) types.push('muộn');
+                    if (decelerations.includes('prolonged')) types.push('kéo dài');
+                    summaryText += `• Nhịp giảm: ${types.join(', ')}\n`;
+                }
+            }
+            
+            // Nhịp tăng
+            if (formData.acceleration) {
+                summaryText += `• Nhịp tăng: ${formData.acceleration === 'present' ? 'Có' : 'Không có'}\n`;
+            }
+            
+            const summaryLines = doc.splitTextToSize(summaryText, maxWidth);
+            doc.text(summaryLines, margin, yPosition);
+            yPosition += summaryLines.length * 5 + 10;
+            
+            // Kiểm tra trang mới
+            if (yPosition > 250) {
+                doc.addPage();
+                yPosition = 20;
+            }
+            
+            // Kết quả phân tích
+            doc.setFontSize(14);
+            doc.text('2. KẾT QUẢ PHÂN TÍCH', margin, yPosition);
+            yPosition += 10;
+            
+            doc.setFontSize(10);
+            
+            Object.values(analysisResults).forEach((result, index) => {
+                // Kiểm tra nếu cần trang mới
+                if (yPosition > 240) {
+                    doc.addPage();
+                    yPosition = 20;
+                }
+                
+                doc.setFontSize(12);
+                doc.text(`${result.system}:`, margin, yPosition);
+                yPosition += 8;
+                
+                doc.setFontSize(11);
+                doc.text(`Kết luận: ${result.classification}`, margin + 5, yPosition);
+                yPosition += 8;
+                
+                doc.setFontSize(9);
+                result.details.forEach(detail => {
+                    if (yPosition > 270) {
+                        doc.addPage();
+                        yPosition = 20;
+                    }
+                    
+                    const cleanDetail = detail.replace(/[🟢🟡🔴⚠️📋🔧✓→]/g, '');
+                    const lines = doc.splitTextToSize('- ' + cleanDetail, maxWidth - 10);
+                    doc.text(lines, margin + 5, yPosition);
+                    yPosition += lines.length * 4 + 2;
+                });
+                
+                yPosition += 5;
+            });
+            
+            // Footer
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.text(`Trang ${i}/${pageCount}`, pageWidth - margin, doc.internal.pageSize.height - 10, { align: 'right' });
+                doc.text('Tạo bởi CTG Analyzer', margin, doc.internal.pageSize.height - 10);
+            }
+            
+            // Lưu file
+            const fileName = `CTG_Analysis_${new Date().toISOString().slice(0,10)}.pdf`;
+            doc.save(fileName);
         }
         
         // Initialize radio button styling
