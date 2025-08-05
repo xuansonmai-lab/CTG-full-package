@@ -317,6 +317,58 @@
             box-shadow: none;
         }
         
+        .save-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+        
+        .save-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(155, 89, 182, 0.4);
+        }
+        
+        .save-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .status-message {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            display: none;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status-loading {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
         .progress-bar {
             width: 100%;
             height: 6px;
@@ -693,7 +745,10 @@
 
                 <button class="analyze-btn" onclick="analyzeResults()">🔍 Phân tích kết quả</button>
                 <button class="export-btn" id="exportBtn" onclick="exportToPDF()" disabled>📄 Xuất báo cáo PDF</button>
+                <button class="save-btn" id="saveBtn" onclick="saveDataToServer()" disabled>💾 Lưu dữ liệu</button>
                 <button class="reset-btn" id="resetBtn" onclick="resetForm()" disabled>🔄 Đánh giá tiếp</button>
+                
+                <div id="statusMessage" class="status-message"></div>
             </div>
             
             <div class="results-section">
@@ -711,6 +766,9 @@
         let formData = {};
         let ctgImageData = null;
         let analysisResults = null;
+        
+        // Google Apps Script URL
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzhIeAUZZsFBYpz7XRSJiioQCPe3yzOE1b58XHJHwcWp0EPWdc6ZKEnxbz3RsTriptl/exec';
         
         function handleImageUpload(event) {
             const file = event.target.files[0];
@@ -1467,9 +1525,113 @@
             analysisResults = results;
             displayResults(results);
             
-            // Enable export and reset buttons
+            // Enable export, save and reset buttons
             document.getElementById('exportBtn').disabled = false;
+            document.getElementById('saveBtn').disabled = false;
             document.getElementById('resetBtn').disabled = false;
+        }
+        
+        async function saveDataToServer() {
+            if (!analysisResults) {
+                showStatusMessage('Vui lòng phân tích kết quả trước khi lưu dữ liệu', 'error');
+                return;
+            }
+            
+            // Xác nhận trước khi gửi
+            const confirmed = confirm('Bạn có chắc chắn muốn lưu dữ liệu CTG này lên server?\n\nDữ liệu bao gồm:\n- Thông tin CTG đã chọn\n- Kết quả phân tích\n- Ảnh CTG (nếu có)');
+            
+            if (!confirmed) return;
+            
+            // Hiển thị trạng thái đang gửi
+            showStatusMessage('⏳ Đang lưu dữ liệu...', 'loading');
+            document.getElementById('saveBtn').disabled = true;
+            
+            try {
+                // Chuẩn bị dữ liệu gửi
+                const payload = {
+                    timestamp: new Date().toISOString(),
+                    formData: formData,
+                    analysisResults: analysisResults,
+                    ctgImage: ctgImageData,
+                    summary: generateDataSummary()
+                };
+                
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatusMessage('✅ Lưu dữ liệu thành công!', 'success');
+                } else {
+                    showStatusMessage('❌ Lỗi: ' + (result.error || 'Không thể lưu dữ liệu'), 'error');
+                }
+                
+            } catch (error) {
+                showStatusMessage('❌ Lỗi kết nối: ' + error.message, 'error');
+                console.error('Error saving data:', error);
+            } finally {
+                document.getElementById('saveBtn').disabled = false;
+            }
+        }
+        
+        function generateDataSummary() {
+            let summary = {};
+            
+            // Gò tử cung
+            const contraction = document.querySelector('input[name="uterine_contraction"]:checked');
+            if (contraction) {
+                summary.uterine_contraction = contraction.value;
+            }
+            
+            // Tim thai căn bản
+            if (formData.baseline_fhr) {
+                summary.baseline_fhr = formData.baseline_fhr;
+                if (formData.baseline_stable) summary.baseline_stable = formData.baseline_stable;
+                if (formData.baseline_100_109_type) summary.baseline_100_109_type = formData.baseline_100_109_type;
+            }
+            
+            // Dao động nội tại
+            if (formData.variability) {
+                summary.variability = formData.variability;
+                if (formData.minimal_duration) summary.minimal_duration = formData.minimal_duration;
+                if (formData.marked_duration) summary.marked_duration = formData.marked_duration;
+            }
+            
+            // Nhịp giảm
+            if (formData.decelerations) {
+                summary.decelerations = formData.decelerations;
+                if (formData.variable_severity) summary.variable_severity = formData.variable_severity;
+                if (formData.late_severity) summary.late_severity = formData.late_severity;
+                if (formData.prolonged_severity) summary.prolonged_severity = formData.prolonged_severity;
+            }
+            
+            // Nhịp tăng
+            if (formData.acceleration) {
+                summary.acceleration = formData.acceleration;
+                if (formData.acceleration_disappear) summary.acceleration_disappear = formData.acceleration_disappear;
+            }
+            
+            return summary;
+        }
+        
+        function showStatusMessage(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.style.display = 'block';
+            
+            // Tự động ẩn sau 5 giây (trừ loading)
+            if (type !== 'loading') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            }
         }
         
         function resetForm() {
@@ -1515,8 +1677,12 @@
                     </p>
                 `;
                 
+                // Hide status message
+                document.getElementById('statusMessage').style.display = 'none';
+                
                 // Disable buttons
                 document.getElementById('exportBtn').disabled = true;
+                document.getElementById('saveBtn').disabled = true;
                 document.getElementById('resetBtn').disabled = true;
                 
                 // Scroll to top
