@@ -768,7 +768,7 @@
         let analysisResults = null;
         
         // Google Apps Script URL
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzfj0e_E_r94XFXt1pv5fOEY9y6TDKGbvRP6PQKTUaXCLE9gutiIPuS04sra6hyG7Sh/exec';
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx4XclvZPeVLea7_23lsMaKR_5ysE-dB5nI92VcYrjZmCjF-ed2Awffn5MOA571Qm8/exec';
         
         function handleImageUpload(event) {
             const file = event.target.files[0];
@@ -1538,85 +1538,71 @@
             }
             
             // Xác nhận trước khi gửi
-            const confirmed = confirm('Bạn có chắc chắn muốn lưu dữ liệu CTG này lên server?\n\nDữ liệu bao gồm:\n- Thông tin CTG đã chọn\n- Kết quả phân tích\n- Ảnh CTG (nếu có)');
+            const confirmed = confirm('Bạn có chắc chắn muốn lưu dữ liệu CTG này lên Google Sheets?\n\nDữ liệu bao gồm:\n✅ Thông tin CTG đã chọn\n✅ Kết quả phân tích từ 6 hệ thống\n✅ Ảnh CTG (nếu có) → Upload lên Google Drive\n✅ Link ảnh sẽ được lưu trong Sheets');
             
             if (!confirmed) return;
             
             // Hiển thị trạng thái đang gửi
-            showStatusMessage('⏳ Đang lưu dữ liệu...', 'loading');
+            showStatusMessage('⏳ Đang lưu dữ liệu và upload ảnh lên Google Drive...', 'loading');
             document.getElementById('saveBtn').disabled = true;
             
             try {
-                // Chuẩn bị dữ liệu gửi (format cho Google Apps Script)
+                // Chuẩn bị dữ liệu gửi đầy đủ (bao gồm ảnh base64)
                 const payload = {
                     timestamp: new Date().toISOString(),
                     formData: formData,
                     analysisResults: analysisResults,
-                    ctgImage: ctgImageData ? ctgImageData.substring(0, 100) + '...[truncated]' : null, // Rút gọn ảnh để test
+                    ctgImage: ctgImageData, // Gửi full base64 để Apps Script xử lý
                     summary: generateDataSummary()
                 };
                 
-                // Phương pháp 1: Fetch với FormData
-                const formData_send = new FormData();
-                formData_send.append('data', JSON.stringify(payload));
-                
+                // Sử dụng FormData để gửi
                 const response = await fetch(APPS_SCRIPT_URL, {
                     method: 'POST',
-                    body: formData_send,
-                    mode: 'no-cors' // Bypass CORS
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
                 });
                 
-                // Với no-cors, response.json() sẽ không hoạt động
-                showStatusMessage('✅ Dữ liệu đã được gửi!', 'success');
+                const result = await response.json();
+                
+                if (result.success) {
+                    let message = '✅ Lưu dữ liệu thành công!';
+                    if (result.imageUrl && result.imageUrl !== 'Không có ảnh') {
+                        message += `\n🖼️ Ảnh CTG đã được upload: ${result.imageUrl}`;
+                    }
+                    showStatusMessage(message, 'success');
+                } else {
+                    showStatusMessage('❌ Lỗi: ' + (result.error || 'Không thể lưu dữ liệu'), 'error');
+                }
                 
             } catch (error) {
-                console.error('Fetch failed, trying alternative method:', error);
+                console.error('Error saving data:', error);
                 
-                // Phương pháp 2: Sử dụng fetch đơn giản
+                // Fallback method với FormData
                 try {
                     const payload = {
                         timestamp: new Date().toISOString(),
                         formData: formData,
                         analysisResults: analysisResults,
-                        ctgImage: ctgImageData ? 'Image attached' : null,
+                        ctgImage: ctgImageData,
                         summary: generateDataSummary()
                     };
                     
-                    await fetch(APPS_SCRIPT_URL + '?callback=?', {
+                    const formData_send = new FormData();
+                    formData_send.append('data', JSON.stringify(payload));
+                    
+                    await fetch(APPS_SCRIPT_URL, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'text/plain',
-                        },
-                        body: JSON.stringify(payload),
+                        body: formData_send,
                         mode: 'no-cors'
                     });
                     
-                    showStatusMessage('✅ Dữ liệu đã được gửi! (Phương pháp 2)', 'success');
+                    showStatusMessage('✅ Dữ liệu đã được gửi! (Kiểm tra Google Sheets để xác nhận)', 'success');
                     
                 } catch (error2) {
-                    console.error('Alternative method also failed:', error2);
-                    
-                    // Phương pháp 3: JSONP fallback
-                    try {
-                        const payload = {
-                            timestamp: new Date().toISOString(),
-                            summary: generateDataSummary()
-                        };
-                        
-                        const script = document.createElement('script');
-                        script.src = APPS_SCRIPT_URL + '?callback=handleResponse&data=' + encodeURIComponent(JSON.stringify(payload));
-                        document.head.appendChild(script);
-                        
-                        // Cleanup
-                        setTimeout(() => {
-                            document.head.removeChild(script);
-                        }, 5000);
-                        
-                        showStatusMessage('✅ Dữ liệu đã được gửi! (JSONP)', 'success');
-                        
-                    } catch (error3) {
-                        showStatusMessage('❌ Lỗi kết nối: ' + error3.message + '\n\n🔧 Hướng dẫn khắc phục:\n1. Kiểm tra URL Apps Script\n2. Đảm bảo Apps Script đã được deploy\n3. Thử lại sau vài phút', 'error');
-                    }
+                    showStatusMessage(`❌ Lỗi kết nối: ${error.message}\n\n🔧 Kiểm tra:\n1. Apps Script đã deploy chưa?\n2. Sheet ID đã đúng chưa?\n3. Đã authorize quyền Drive & Sheets chưa?`, 'error');
                 }
             } finally {
                 document.getElementById('saveBtn').disabled = false;
