@@ -308,6 +308,10 @@
                             <input type="radio" name="baseline_fhr" value=">180" onchange="handleBaselineFHR(this)">
                             > 180 bpm
                         </label>
+                        <label class="radio-item">
+                            <input type="radio" name="baseline_fhr" value="unidentifiable" onchange="handleBaselineFHR(this)">
+                            Không xác định được baseline
+                        </label>
                     </div>
                     
                     <div id="baseline_sub_questions" class="hidden">
@@ -672,6 +676,10 @@
                             <h4>Thời gian:</h4>
                             <div class="radio-group">
                                 <label class="radio-item">
+                                    <input type="radio" name="prolonged_duration" value="<2" onchange="formData.prolonged_duration = this.value">
+                                    < 2 phút
+                                </label>
+                                <label class="radio-item">
                                     <input type="radio" name="prolonged_duration" value="2-3" onchange="formData.prolonged_duration = this.value">
                                     2-3 phút
                                 </label>
@@ -679,6 +687,23 @@
                                     <input type="radio" name="prolonged_duration" value=">3" onchange="formData.prolonged_duration = this.value">
                                     > 3 phút
                                 </label>
+                            </div>
+                            <div class="sub-question">
+                                <h4>Thời gian xuất hiện (cho FIGO):</h4>
+                                <div class="radio-group">
+                                    <label class="radio-item">
+                                        <input type="radio" name="prolonged_occurrence_time" value="<20" onchange="formData.prolonged_occurrence_time = this.value">
+                                        < 20 phút
+                                    </label>
+                                    <label class="radio-item">
+                                        <input type="radio" name="prolonged_occurrence_time" value="20-30" onchange="formData.prolonged_occurrence_time = this.value">
+                                        20-30 phút
+                                    </label>
+                                    <label class="radio-item">
+                                        <input type="radio" name="prolonged_occurrence_time" value=">30" onchange="formData.prolonged_occurrence_time = this.value">
+                                        > 30 phút
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -919,84 +944,95 @@
         function analyzeNICE() {
             let scores = { white: 0, yellow: 0, red: 0 };
             let details = [];
+            let reasoningDetails = [];
             
             // Gò tử cung
             const contraction = document.querySelector('input[name="uterine_contraction"]:checked')?.value;
             if (contraction === 'normal') {
                 scores.white++;
-                details.push('Gò tử cung: Bình thường');
+                reasoningDetails.push('Gò tử cung < 5 cơn/10 phút = Bình thường (Trắng)');
             } else if (contraction === 'suspicious' || contraction === 'prolonged') {
                 scores.yellow++;
-                details.push('Gò tử cung: Nghi ngờ');
+                reasoningDetails.push('Gò tử cung ≥ 5 cơn/10 phút hoặc kéo dài ≥ 2 phút = Nghi ngờ (Vàng)');
             }
             
             // Tim thai căn bản
             const baseline = formData.baseline_fhr;
             if (baseline === '110-160' && formData.baseline_stable === 'yes') {
                 scores.white++;
-                details.push('Tim thai: Bình thường');
+                reasoningDetails.push('Tim thai 110-160 bpm ổn định, phù hợp tuổi thai = Bình thường (Trắng)');
             } else if (baseline === '100-109' && formData.baseline_100_109_type === 'existing') {
                 scores.white++;
-                details.push('Tim thai: Bình thường');
+                reasoningDetails.push('Tim thai 100-109 bpm (đã có từ trước) = Bình thường (Trắng)');
             } else if (baseline === '100-109' && formData.baseline_100_109_type === 'new') {
                 scores.yellow++;
-                details.push('Tim thai: Nghi ngờ');
+                reasoningDetails.push('Tim thai 100-109 bpm (mới xuất hiện) = Nghi ngờ (Vàng)');
             } else if (baseline === '110-160' && (formData.baseline_increase_20_normal || formData.baseline_unidentifiable)) {
                 scores.yellow++;
-                details.push('Tim thai: Nghi ngờ');
+                reasoningDetails.push('Tim thai tăng ≥ 20 bpm từ đầu chuyển dạ hoặc không xác định được baseline = Nghi ngờ (Vàng)');
             } else if (baseline === '<80' || baseline === '80-100' || baseline === '>180') {
                 scores.red++;
-                details.push('Tim thai: Bất thường');
+                reasoningDetails.push('Tim thai < 100 bpm hoặc > 160 bpm = Bất thường (Đỏ)');
             } else if (baseline === '160-179') {
                 scores.red++;
-                details.push('Tim thai: Bất thường');
+                reasoningDetails.push('Tim thai 160-179 bpm (> 160 bpm) = Bất thường (Đỏ)');
+            } else if (baseline === 'unidentifiable') {
+                scores.yellow++;
+                reasoningDetails.push('Không xác định được baseline = Nghi ngờ (Vàng)');
             }
             
             // Dao động nội tại
             const variability = formData.variability;
             if (variability === 'moderate') {
                 scores.white++;
-                details.push('Dao động: Bình thường');
+                reasoningDetails.push('Dao động nội tại 5-25 bpm = Bình thường (Trắng)');
             } else if (variability === 'minimal' && formData.minimal_duration === '30-50') {
                 scores.yellow++;
-                details.push('Dao động: Nghi ngờ');
+                reasoningDetails.push('Dao động < 5 bpm trong 30-50 phút = Nghi ngờ (Vàng)');
             } else if (variability === 'marked' && formData.marked_duration === '≤10') {
                 scores.yellow++;
-                details.push('Dao động: Nghi ngờ');
+                reasoningDetails.push('Dao động > 25 bpm trong ≤ 10 phút = Nghi ngờ (Vàng)');
             } else if (variability === 'minimal' && formData.minimal_duration === '>50') {
                 scores.red++;
-                details.push('Dao động: Bất thường');
+                reasoningDetails.push('Dao động < 5 bpm > 50 phút = Bất thường (Đỏ)');
             } else if (variability === 'marked' && formData.marked_duration === '>10') {
                 scores.red++;
-                details.push('Dao động: Bất thường');
-            } else if (variability === 'sinusoidal' || variability === 'undetectable') {
+                reasoningDetails.push('Dao động > 25 bpm > 10 phút = Bất thường (Đỏ)');
+            } else if (variability === 'sinusoidal') {
                 scores.red++;
-                details.push('Dao động: Bất thường');
+                reasoningDetails.push('Dao động dạng hình sin = Bất thường (Đỏ)');
+            } else if (variability === 'undetectable') {
+                scores.red++;
+                reasoningDetails.push('Dao động không phát hiện được = Bất thường (Đỏ)');
             }
             
             // Nhịp giảm (logic phức tạp)
-            analyzeDecelerationsNICE(scores, details);
+            analyzeDecelerationsNICE(scores, reasoningDetails);
             
             // Kết luận NICE
             let classification, color;
             if (formData.nice_unclassified) {
                 classification = 'KHÔNG PHÂN LOẠI ĐƯỢC';
                 color = 'unclassified';
+                details.push('Có trường hợp không phân loại được trong NICE 2022');
             } else if (scores.red > 0 || scores.yellow >= 2) {
                 classification = 'BẤT THƯỜNG';
                 color = 'abnormal';
+                details.push('1 tiêu chí đỏ hoặc ≥ 2 tiêu chí vàng → Cần can thiệp ngay');
             } else if (scores.yellow === 1) {
                 classification = 'NGHI NGỜ';
                 color = 'suspicious';
+                details.push('1 tiêu chí vàng → Đánh giá toàn diện, theo dõi sát');
             } else {
                 classification = 'BÌNH THƯỜNG';
                 color = 'normal';
+                details.push('4 tiêu chí đều trắng → Tiếp tục theo dõi');
             }
             
             return {
                 classification,
                 color,
-                details,
+                details: [...details, ...reasoningDetails],
                 system: 'NICE 2022'
             };
         }
@@ -1006,7 +1042,7 @@
             
             if (decelerations.includes('none') || decelerations.includes('early')) {
                 scores.white++;
-                details.push('Nhịp giảm: Bình thường');
+                details.push('Nhịp giảm: Bình thường (không có hoặc chỉ có nhịp giảm sớm)');
                 return;
             }
             
@@ -1039,19 +1075,22 @@
                         }
                     } else {
                         scores.white++;
-                        details.push('Nhịp giảm: Bình thường');
+                        details.push('Nhịp giảm: Bình thường (bất định không có đặc điểm đáng ngại)');
                     }
                 }
             }
             
             if (decelerations.includes('late')) {
                 if (formData.late_repetitive === 'yes') {
-                    if (formData.late_duration === '<30') {
+                    if (formData.late_duration === '<20') {
                         scores.yellow++;
                         details.push('Nhịp giảm: Nghi ngờ (muộn lặp lại < 30 phút)');
+                    } else if (formData.late_duration === '20-30') {
+                        scores.yellow++;
+                        details.push('Nhịp giảm: Nghi ngờ (muộn lặp lại 20-30 phút)');
                     } else {
                         scores.red++;
-                        details.push('Nhịp giảm: Bất thường (muộn lặp lại ≥ 30 phút)');
+                        details.push('Nhịp giảm: Bất thường (muộn lặp lại > 30 phút)');
                     }
                 } else if (formData.late_repetitive === 'no') {
                     // Trường hợp unclassified: Late decelerations không lặp lại
@@ -1063,7 +1102,7 @@
             if (decelerations.includes('prolonged')) {
                 if (formData.prolonged_duration === '>3') {
                     scores.red++;
-                    details.push('Nhịp giảm: Bất thường (kéo dài > 3 phút)');
+                    details.push('Nhịp giảm: Bất thường (kéo dài > 3 phút = tim thai chậm cấp)');
                 }
             }
             
@@ -1079,7 +1118,9 @@
             const variability = formData.variability;
             const decelerations = formData.decelerations || [];
             
-            const hasNormalBaseline = baseline === '110-160';
+            let reasoningDetails = [];
+            
+            const hasNormalBaseline = baseline === '110-160' && formData.baseline_stable === 'yes';
             const hasModerateVariability = variability === 'moderate';
             const hasNoLateOrVariable = !decelerations.includes('late') && !decelerations.includes('variable');
             
@@ -1095,75 +1136,143 @@
             if ((hasAbsentVariability && (hasRecurrentLate || hasRecurrentVariable || hasBradycardia)) || hasSinusoidal) {
                 classification = 'NHÓM III';
                 color = 'abnormal';
+                if (hasAbsentVariability && hasBradycardia) {
+                    reasoningDetails.push('Không có dao động nội tại + tim thai < 110 bpm = Nhóm III');
+                } else if (hasAbsentVariability && (hasRecurrentLate || hasRecurrentVariable)) {
+                    reasoningDetails.push('Không có dao động nội tại + nhịp giảm lặp lại = Nhóm III');
+                } else if (hasSinusoidal) {
+                    reasoningDetails.push('Biểu đồ dạng hình sin = Nhóm III');
+                }
+                reasoningDetails.push('Nhóm III: Cần can thiệp ngay lập tức');
             } else if (hasNormalBaseline && hasModerateVariability && hasNoLateOrVariable) {
                 classification = 'NHÓM I';
                 color = 'normal';
+                reasoningDetails.push('Tim thai 110-160 bpm + dao động trung bình + không có nhịp giảm muộn/bất định = Nhóm I');
+                reasoningDetails.push('Nhóm I: Thai nhi khỏe mạnh, theo dõi bình thường');
             } else {
                 classification = 'NHÓM II';
                 color = 'suspicious';
+                reasoningDetails.push('Không đạt tiêu chí Nhóm I và không có dấu hiệu Nhóm III = Nhóm II');
+                reasoningDetails.push('Nhóm II: Cần theo dõi sát, đánh giá thêm');
             }
             
             return {
                 classification,
                 color,
-                details: [`Phân loại theo tiêu chí ACOG: ${classification}`],
+                details: reasoningDetails,
                 system: 'ACOG 2009'
             };
         }
         
         function analyzeRCOG() {
-            let reassuringFeatures = 0;
+            let reassuring = 0;
             let nonReassuring = 0;
             let abnormal = 0;
             let details = [];
+            let reasoningDetails = [];
             
             // Tim thai căn bản
             const baseline = formData.baseline_fhr;
-            if (baseline === '110-160') {
-                reassuringFeatures++;
+            if (baseline === '110-160' && formData.baseline_stable === 'yes') {
+                reassuring++;
+                reasoningDetails.push('Tim thai 110-160 bpm ổn định = An tâm');
             } else if (baseline === '100-109' || baseline === '160-179') {
                 nonReassuring++;
-                details.push('Tim thai: Không an tâm');
-            } else if (baseline === '<80' || baseline === '80-100' || baseline === '>180') {
+                reasoningDetails.push('Tim thai 100-109 bpm hoặc 161-180 bpm = Không an tâm');
+            } else if (baseline === '<80' || baseline === '80-100' || baseline === '>180' || baseline === 'unidentifiable') {
                 abnormal++;
-                details.push('Tim thai: Bất thường');
+                reasoningDetails.push('Tim thai < 100 bpm hoặc > 180 bpm = Bất thường');
+            } else {
+                nonReassuring++;
+                reasoningDetails.push('Tim thai không ổn định = Không an tâm');
             }
             
-            // Dao động nội tai
+            // Dao động nội tại
             const variability = formData.variability;
             if (variability === 'moderate' || variability === 'marked') {
-                reassuringFeatures++;
+                reassuring++;
+                reasoningDetails.push('Dao động ≥ 5 bpm = An tâm');
             } else if (variability === 'minimal') {
-                // Cần thêm logic thời gian
                 if (formData.minimal_duration === '>50') {
                     abnormal++;
-                    details.push('Dao động: Bất thường');
+                    reasoningDetails.push('Dao động < 5 bpm trong ≥ 90 phút = Bất thường');
                 } else {
                     nonReassuring++;
-                    details.push('Dao động: Không an tâm');
+                    reasoningDetails.push('Dao động < 5 bpm trong 40-90 phút = Không an tâm');
                 }
-            } else if (variability === 'undetectable' || variability === 'sinusoidal') {
+            } else if (variability === 'undetectable') {
                 abnormal++;
-                details.push('Dao động: Bất thường');
+                reasoningDetails.push('Dao động không phát hiện được = Bất thường');
+            } else if (variability === 'sinusoidal') {
+                abnormal++;
+                reasoningDetails.push('Dao động hình sin ≥ 10 phút = Bất thường');
             }
             
-            // Kết luận
+            // Nhịp giảm
+            const decelerations = formData.decelerations || [];
+            if (decelerations.includes('none')) {
+                reassuring++;
+                reasoningDetails.push('Không có nhịp giảm = An tâm');
+            } else if (decelerations.includes('early')) {
+                nonReassuring++;
+                reasoningDetails.push('Nhịp giảm sớm = Không an tâm');
+            } else if (decelerations.includes('variable')) {
+                // Nhịp giảm biến đổi không điển hình = bất thường
+                if ((formData.variable_severity === 'severe') || 
+                    (formData.worrying_features && formData.worrying_features.length > 0) ||
+                    (formData.worrying_features_nonrep && formData.worrying_features_nonrep.length > 0)) {
+                    abnormal++;
+                    reasoningDetails.push('Nhịp giảm biến đổi không điển hình = Bất thường');
+                } else {
+                    nonReassuring++;
+                    reasoningDetails.push('Nhịp giảm biến đổi = Không an tâm');
+                }
+            } else if (decelerations.includes('late')) {
+                abnormal++;
+                reasoningDetails.push('Nhịp giảm muộn = Bất thường');
+            } else if (decelerations.includes('prolonged')) {
+                if (formData.prolonged_duration === '>3') {
+                    abnormal++;
+                    reasoningDetails.push('Nhịp giảm kéo dài > 3 phút = Bất thường');
+                } else {
+                    nonReassuring++;
+                    reasoningDetails.push('Nhịp giảm kéo dài ≤ 3 phút = Không an tâm');
+                }
+            }
+            
+            // Nhịp tăng
+            if (formData.acceleration === 'present') {
+                reassuring++;
+                reasoningDetails.push('Có nhịp tăng = An tâm');
+            } else if (formData.acceleration === 'absent') {
+                nonReassuring++;
+                reasoningDetails.push('Vắng mặt nhịp tăng = Không an tâm');
+            }
+            
+            // Kết luận RCOG
             let classification, color;
-            if (abnormal > 0 || nonReassuring >= 2) {
+            if (abnormal >= 1 || nonReassuring >= 2) {
                 classification = 'BẤT THƯỜNG';
                 color = 'abnormal';
+                details.push('≥ 1 đặc điểm Bất thường hoặc ≥ 2 đặc điểm Không an tâm');
             } else if (nonReassuring === 1) {
                 classification = 'NGHI NGỜ (Không an tâm)';
                 color = 'suspicious';
-            } else {
+                details.push('1 đặc điểm Không an tâm');
+            } else if (reassuring === 4) {
                 classification = 'BÌNH THƯỜNG (An tâm)';
                 color = 'normal';
+                details.push('4 đặc điểm đều An tâm');
+            } else {
+                classification = 'NGHI NGỜ (Không đủ thông tin)';
+                color = 'suspicious';
+                details.push('Không đủ thông tin để phân loại');
             }
             
             return {
                 classification,
                 color,
-                details,
+                details: [...details, ...reasoningDetails],
                 system: 'RCOG 2001'
             };
         }
@@ -1173,41 +1282,76 @@
             let suspicious = 0;
             let pathological = 0;
             let details = [];
+            let reasoningDetails = [];
             
             // Tim thai căn bản
             const baseline = formData.baseline_fhr;
-            if (baseline === '110-160') {
+            if (baseline === '110-160' && formData.baseline_stable === 'yes') {
                 normal++;
+                reasoningDetails.push('Tim thai 110-160 bpm ổn định = Bình thường');
             } else if (baseline === '<80' || baseline === '80-100') {
                 pathological++;
-                details.push('Tim thai: Bệnh lý');
+                reasoningDetails.push('Tim thai < 100 bpm = Bệnh lý');
             } else {
                 suspicious++;
-                details.push('Tim thai: Nghi ngờ');
+                reasoningDetails.push('Tim thai thiếu ít nhất một đặc điểm bình thường = Nghi ngờ');
             }
             
             // Dao động
             const variability = formData.variability;
+            const hasReducedVariability = variability === 'minimal' || variability === 'undetectable';
+            
             if (variability === 'moderate') {
                 normal++;
+                reasoningDetails.push('Dao động 5-25 bpm = Bình thường');
             } else if (variability === 'undetectable' || variability === 'marked' || variability === 'sinusoidal') {
                 pathological++;
-                details.push('Dao động: Bệnh lý');
+                if (variability === 'undetectable') {
+                    reasoningDetails.push('Dao động giảm (không phát hiện được) = Bệnh lý');
+                } else if (variability === 'marked') {
+                    reasoningDetails.push('Dao động tăng (> 25 bpm) = Bệnh lý');
+                } else {
+                    reasoningDetails.push('Dao động dạng hình sin = Bệnh lý');
+                }
             } else {
                 suspicious++;
-                details.push('Dao động: Nghi ngờ');
+                reasoningDetails.push('Dao động thiếu ít nhất một đặc điểm bình thường = Nghi ngờ');
             }
             
             // Nhịp giảm
             const decelerations = formData.decelerations || [];
-            if (decelerations.includes('none') || decelerations.includes('early')) {
+            if (decelerations.includes('none')) {
                 normal++;
-            } else if (decelerations.includes('late') || decelerations.includes('prolonged')) {
-                pathological++;
-                details.push('Nhịp giảm: Bệnh lý');
-            } else {
+                reasoningDetails.push('Không có nhịp giảm lặp lại = Bình thường');
+            } else if (decelerations.includes('late') && formData.late_repetitive === 'yes') {
+                // Nhịp giảm muộn lặp lại
+                if (formData.late_duration === '>30') {
+                    pathological++;
+                    reasoningDetails.push('Nhịp giảm muộn lặp lại > 30 phút = Bệnh lý');
+                } else if (formData.late_duration === '20-30' && hasReducedVariability) {
+                    pathological++;
+                    reasoningDetails.push('Nhịp giảm muộn lặp lại 20-30 phút + giảm dao động nội tại = Bệnh lý');
+                } else {
+                    suspicious++;
+                    reasoningDetails.push('Nhịp giảm muộn lặp lại < 30 phút = Nghi ngờ');
+                }
+            } else if (decelerations.includes('prolonged')) {
+                if (formData.prolonged_duration === '>2') {
+                    pathological++;
+                    reasoningDetails.push('Nhịp giảm kéo dài > 2 phút = Bệnh lý');
+                } else if (formData.prolonged_occurrence_time === '>30') {
+                    pathological++;
+                    reasoningDetails.push('Nhịp giảm kéo dài lặp lại > 30 phút = Bệnh lý');
+                } else if (formData.prolonged_occurrence_time === '20-30' && hasReducedVariability) {
+                    pathological++;
+                    reasoningDetails.push('Nhịp giảm kéo dài lặp lại 20-30 phút + giảm dao động nội tại = Bệnh lý');
+                } else {
+                    suspicious++;
+                    reasoningDetails.push('Nhịp giảm kéo dài = Nghi ngờ');
+                }
+            } else if (decelerations.includes('variable') || decelerations.includes('early')) {
                 suspicious++;
-                details.push('Nhịp giảm: Nghi ngờ');
+                reasoningDetails.push('Có nhịp giảm nhưng không đủ tiêu chí bệnh lý = Nghi ngờ');
             }
             
             // Kết luận
@@ -1215,18 +1359,21 @@
             if (pathological > 0) {
                 classification = 'BỆNH LÝ';
                 color = 'abnormal';
+                details.push('Thai nhi có khả năng cao bị thiếu oxy/toan máu');
             } else if (suspicious > 0) {
                 classification = 'NGHI NGỜ';
                 color = 'suspicious';
+                details.push('Thai nhi có nguy cơ (thấp) bị thiếu oxy/toan máu');
             } else {
                 classification = 'BÌNH THƯỜNG';
                 color = 'normal';
+                details.push('Thai nhi không bị thiếu oxy/thoái toan');
             }
             
             return {
                 classification,
                 color,
-                details,
+                details: [...details, ...reasoningDetails],
                 system: 'FIGO 2015'
             };
         }
@@ -1238,52 +1385,75 @@
             const decelerations = formData.decelerations || [];
             
             let level = 1; // Mặc định level 1
+            let reasoningDetails = [];
             
             // Logic cơ bản dựa trên bảng trong tài liệu
             if (baseline === '110-160' && variability === 'moderate' && decelerations.includes('none')) {
                 level = 1;
+                reasoningDetails.push('Tim thai 110-160 bpm + dao động trung bình + không có nhịp giảm = Mức 1');
             } else if ((baseline === '110-160' && variability === 'moderate' && decelerations.includes('early')) ||
                        (baseline === '>180' && variability === 'moderate' && decelerations.includes('none'))) {
                 level = 2;
+                reasoningDetails.push('Tim thai bình thường + dao động trung bình + nhịp giảm sớm = Mức 2');
             } else if (baseline === '<80' || variability === 'undetectable') {
                 level = 4;
+                reasoningDetails.push('Tim thai < 80 bpm hoặc dao động không phát hiện được = Mức 4');
             } else if (variability === 'sinusoidal') {
                 level = 4;
+                reasoningDetails.push('Dao động dạng hình sin = Mức 4');
             } else {
                 level = 3; // Mặc định cho các trường hợp khác
+                reasoningDetails.push('Các thông số khác không đạt mức 1-2 = Mức 3');
             }
             
             // Điều chỉnh dựa trên nhịp giảm nặng
             if (decelerations.includes('variable') && formData.variable_severity === 'severe') {
                 level = Math.max(level, 4);
+                reasoningDetails.push('Nhịp giảm bất định nặng → Tăng lên ít nhất Mức 4');
             }
             
             if (decelerations.includes('late') && formData.late_severity === 'severe') {
                 level = Math.max(level, 4);
+                reasoningDetails.push('Nhịp giảm muộn nặng (> 15 bpm từ baseline) → Tăng lên ít nhất Mức 4');
             }
             
             if (decelerations.includes('prolonged') && formData.prolonged_severity === 'severe') {
                 level = Math.max(level, 4);
+                reasoningDetails.push('Nhịp giảm kéo dài nặng (điểm thấp nhất < 80 bpm) → Tăng lên ít nhất Mức 4');
             }
             
             // Level 5 cho các trường hợp rất nghiêm trọng
             if ((baseline === '<80' && variability === 'undetectable') ||
                 (variability === 'undetectable' && decelerations.includes('variable') && formData.variable_severity === 'severe')) {
                 level = 5;
+                reasoningDetails.push('Tim thai < 80 bpm + không có dao động hoặc dao động không phát hiện được + nhịp giảm nặng = Mức 5');
             }
             
-            let color;
-            if (level === 1) color = 'normal';
-            else if (level === 2) color = 'normal';
-            else if (level === 3) color = 'suspicious';
-            else if (level === 4) color = 'abnormal';
-            else color = 'abnormal';
+            let color, management;
+            if (level === 1) {
+                color = 'normal';
+                management = 'Theo dõi bình thường';
+            } else if (level === 2) {
+                color = 'normal';
+                management = 'Theo dõi bình thường, chú ý';
+            } else if (level === 3) {
+                color = 'suspicious';
+                management = 'Theo dõi sát, cân nhắc can thiệp';
+            } else if (level === 4) {
+                color = 'abnormal';
+                management = 'Cần can thiệp sớm';
+            } else {
+                color = 'abnormal';
+                management = 'Cần can thiệp ngay lập tức';
+            }
+            
+            reasoningDetails.push(`Khuyến nghị: ${management}`);
             
             return {
                 classification: `MỨC ĐỘ ${level}`,
                 color,
-                details: [`Phân loại 5 mức (Nhật Bản): Mức độ ${level}`],
-                system: 'Phân loại 5 mức'
+                details: reasoningDetails,
+                system: 'Phân loại 5 mức (Nhật Bản)'
             };
         }
         
@@ -1291,23 +1461,28 @@
             const baseline = formData.baseline_fhr;
             const variability = formData.variability;
             const decelerations = formData.decelerations || [];
+            let reasoningDetails = [];
             
             // Thiếu oxy cấp
             if (decelerations.includes('prolonged') && formData.prolonged_duration === '>3') {
+                reasoningDetails.push('Nhịp giảm kéo dài > 3 phút → Nghi ngờ tai biến sản khoa');
+                reasoningDetails.push('Cần loại trừ: sa dây rốn, nhau bong non, vỡ tử cung');
                 return {
                     classification: 'THIẾU OXY CẤP',
                     color: 'abnormal',
-                    details: ['Nhịp giảm kéo dài > 3 phút'],
+                    details: reasoningDetails,
                     system: 'Phân loại Sinh lý'
                 };
             }
             
             // Thiếu oxy bán cấp
             if (formData.time_comparison === 'deceleration_longer') {
+                reasoningDetails.push('Thời gian trong nhịp giảm > thời gian ở baseline');
+                reasoningDetails.push('Thời gian trong nhịp giảm > 90 giây, thời gian ở baseline < 30 giây');
                 return {
                     classification: 'THIẾU OXY BÁN CẤP',
                     color: 'abnormal',
-                    details: ['Thời gian trong nhịp giảm > thời gian ở baseline'],
+                    details: reasoningDetails,
                     system: 'Phân loại Sinh lý'
                 };
             }
@@ -1320,10 +1495,14 @@
                                              (decelerations.includes('late') && formData.late_repetitive === 'yes');
             
             if (hasIncreasedBaseline && hasAbnormalVariability && hasRecurrentDecelerations) {
+                reasoningDetails.push('Tăng tim thai căn bản (tăng > 10% hoặc ≥ 20 bpm)');
+                reasoningDetails.push('Dao động nội tại bất thường (< 5 bpm hoặc > 25 bpm)');
+                reasoningDetails.push('Nhịp giảm lặp lại (bất định hoặc muộn)');
+                reasoningDetails.push('Tim thai căn bản có thể giảm dần kiểu bậc thang → Nguy cơ cao');
                 return {
                     classification: 'THIẾU OXY DIỄN TIẾN MẤT BÙ',
                     color: 'abnormal',
-                    details: ['Tăng baseline + dao động bất thường + nhịp giảm lặp lại'],
+                    details: reasoningDetails,
                     system: 'Phân loại Sinh lý'
                 };
             }
@@ -1332,18 +1511,24 @@
             if (hasIncreasedBaseline && variability === 'moderate' && 
                 formData.time_comparison === 'baseline_longer' &&
                 (formData.acceleration_disappear === 'yes' || formData.acceleration === 'absent')) {
+                reasoningDetails.push('Tăng tim thai căn bản + dao động nội tại bình thường');
+                reasoningDetails.push('Thời gian ở baseline > thời gian trong nhịp giảm');
+                reasoningDetails.push('Mất nhịp tăng sau nhịp giảm');
+                reasoningDetails.push('Cơ thể thai nhi vẫn đang bù trừ được → Theo dõi 30-60 phút');
                 return {
                     classification: 'THIẾU OXY DIỄN TIẾN CÒN BÙ',
                     color: 'suspicious',
-                    details: ['Tăng baseline + mất nhịp tăng + baseline dài hơn nhịp giảm'],
+                    details: reasoningDetails,
                     system: 'Phân loại Sinh lý'
                 };
             }
             
+            reasoningDetails.push('Không có dấu hiệu rõ ràng của các pattern thiếu oxy');
+            reasoningDetails.push('Thai nhi có thể đang trong tình trạng oxy hóa bình thường');
             return {
                 classification: 'KHÔNG XÁC ĐỊNH THIẾU OXY',
                 color: 'normal',
-                details: ['Không có dấu hiệu rõ ràng của thiếu oxy'],
+                details: reasoningDetails,
                 system: 'Phân loại Sinh lý'
             };
         }
