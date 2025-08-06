@@ -780,7 +780,7 @@
         let analysisResults = null;
         
         // Google Apps Script URL
-        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxpTOT6L_OXv3Xp_cRLnc9NvVjGqPGf3VuCAu8u6U41RRXEU3-ASv24uBL5LnFSad6E/exec';
+        const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxMWjr1vQIKb4-uPLYXBmzOtl3WLgrzyOc47nRDrkX2l_-573-7CEGcMJaafxHQkFUm/exec';
         
         function handleImageUpload(event) {
             const file = event.target.files[0];
@@ -1032,13 +1032,16 @@
                         <h4>Tim thai 100-109 bpm này:</h4>
                         <div class="radio-group">
                             <label class="radio-item">
-                                <input type="radio" name="baseline_100_109_type" value="new" onchange="formData.baseline_100_109_type = this.value; updateProgress(); forceUpdateSummary();">
+                                <input type="radio" name="baseline_100_109_type" value="new" onchange="formData.baseline_100_109_type = this.value; updateProgress(); forceUpdateSummary(); showStepDownQuestion();">
                                 Mới xuất hiện (trước đó > 109 bpm)
                             </label>
                             <label class="radio-item">
-                                <input type="radio" name="baseline_100_109_type" value="existing" onchange="formData.baseline_100_109_type = this.value; updateProgress(); forceUpdateSummary();">
+                                <input type="radio" name="baseline_100_109_type" value="existing" onchange="formData.baseline_100_109_type = this.value; updateProgress(); forceUpdateSummary(); hideStepDownQuestion();">
                                 Đã có từ trước (băng ghi trước cũng 100-109 bpm)
                             </label>
+                        </div>
+                        <div id="step_down_sub" class="hidden">
+                            <!-- Step down question sẽ được thêm vào đây -->
                         </div>
                     </div>
                 `;
@@ -1061,6 +1064,22 @@
                         </div>
                     </div>
                 `;
+            } else if (value === '<80' || value === '80-100') {
+                subHTML = `
+                    <div class="sub-question">
+                        <h4>Tim thai chậm này có đặc điểm gì?</h4>
+                        <div class="radio-group">
+                            <label class="radio-item">
+                                <input type="radio" name="bradycardia_step_down" value="yes" onchange="formData.bradycardia_step_down = this.value; updateProgress(); forceUpdateSummary();">
+                                Có step down (giảm dần so với băng ghi trước)
+                            </label>
+                            <label class="radio-item">
+                                <input type="radio" name="bradycardia_step_down" value="no" onchange="formData.bradycardia_step_down = this.value; updateProgress(); forceUpdateSummary();">
+                                Không có step down
+                            </label>
+                        </div>
+                    </div>
+                `;
             }
             
             if (value === '160-179' || value === '>180') {
@@ -1070,13 +1089,16 @@
                         <p style="color: #e74c3c; font-weight: bold;">⚠️ Tim thai > 160 bpm = Tự động coi là tăng tim thai căn bản</p>
                         <div class="checkbox-group">
                             <label class="checkbox-item">
-                                <input type="checkbox" name="baseline_increase_10" value="yes" onchange="formData.baseline_increase_10 = this.checked; updateProgress(); forceUpdateSummary();" checked disabled>
+                                <input type="checkbox" name="baseline_increase_10" value="yes" onchange="formData.baseline_increase_10 = this.checked; updateProgress(); forceUpdateSummary(); toggleSleepCycleQuestion();" checked disabled>
                                 Tăng > 10% so với băng ghi trước đó (Tự động)
                             </label>
                             <label class="checkbox-item">
-                                <input type="checkbox" name="baseline_increase_20" value="yes" onchange="formData.baseline_increase_20 = this.checked; updateProgress(); forceUpdateSummary();">
+                                <input type="checkbox" name="baseline_increase_20" value="yes" onchange="formData.baseline_increase_20 = this.checked; updateProgress(); forceUpdateSummary(); toggleSleepCycleQuestion();">
                                 Tăng ≥ 20 bpm so với băng ghi trước đó
                             </label>
+                        </div>
+                        <div id="sleep_cycle_sub" class="hidden">
+                            <!-- Sleep cycle question sẽ được thêm vào đây -->
                         </div>
                     </div>
                 `;
@@ -1094,6 +1116,64 @@
             forceUpdateSummary();
         }
         
+        function showStepDownQuestion() {
+            const subContainer = document.getElementById('step_down_sub');
+            const subHTML = `
+                <div class="sub-question">
+                    <h4>Tim thai 100-109 mới xuất hiện này:</h4>
+                    <div class="radio-group">
+                        <label class="radio-item">
+                            <input type="radio" name="baseline_step_down" value="yes" onchange="formData.baseline_step_down = this.value; updateProgress(); forceUpdateSummary();">
+                            Có step down (giảm so với băng ghi trước)
+                        </label>
+                        <label class="radio-item">
+                            <input type="radio" name="baseline_step_down" value="no" onchange="formData.baseline_step_down = this.value; updateProgress(); forceUpdateSummary();">
+                            Không có step down
+                        </label>
+                    </div>
+                </div>
+            `;
+            subContainer.innerHTML = subHTML;
+            subContainer.classList.remove('hidden');
+        }
+        
+        function hideStepDownQuestion() {
+            const subContainer = document.getElementById('step_down_sub');
+            subContainer.classList.add('hidden');
+            formData.baseline_step_down = null;
+        }
+        
+        function toggleSleepCycleQuestion() {
+            const hasIncrease = formData.baseline_increase_10 || formData.baseline_increase_20 || 
+                              formData.baseline_increase_10_normal || formData.baseline_increase_20_normal;
+            
+            const subContainer = document.getElementById('sleep_cycle_sub');
+            
+            if (hasIncrease) {
+                const subHTML = `
+                    <div class="sub-question">
+                        <h4>Thai nhi còn chu kỳ tỉnh ngủ không?</h4>
+                        <p style="color: #6c757d; font-size: 0.9em;">Mô tả: mất nhịp tăng và có nhịp tăng xen kẽ tương ứng với chu kỳ ngủ và tỉnh</p>
+                        <div class="radio-group">
+                            <label class="radio-item">
+                                <input type="radio" name="sleep_cycle" value="yes" onchange="formData.sleep_cycle = this.value; updateProgress(); forceUpdateSummary();">
+                                Có - vẫn còn chu kỳ tỉnh ngủ
+                            </label>
+                            <label class="radio-item">
+                                <input type="radio" name="sleep_cycle" value="no" onchange="formData.sleep_cycle = this.value; updateProgress(); forceUpdateSummary();">
+                                Không - mất chu kỳ tỉnh ngủ
+                            </label>
+                        </div>
+                    </div>
+                `;
+                subContainer.innerHTML = subHTML;
+                subContainer.classList.remove('hidden');
+            } else {
+                subContainer.classList.add('hidden');
+                formData.sleep_cycle = null;
+            }
+        }
+        
         function handleBaselineUnstable(element) {
             const subContainer = document.getElementById('baseline_unstable_sub');
             
@@ -1102,13 +1182,16 @@
                     <h4>Loại thay đổi:</h4>
                     <div class="checkbox-group">
                         <label class="checkbox-item">
-                            <input type="checkbox" name="baseline_increase_10_normal" value="yes" onchange="formData.baseline_increase_10_normal = this.checked; updateProgress(); forceUpdateSummary();">
+                            <input type="checkbox" name="baseline_increase_10_normal" value="yes" onchange="formData.baseline_increase_10_normal = this.checked; updateProgress(); forceUpdateSummary(); toggleSleepCycleQuestion();">
                             Tăng > 10% so với băng ghi trước đó
                         </label>
                         <label class="checkbox-item">
-                            <input type="checkbox" name="baseline_increase_20_normal" value="yes" onchange="formData.baseline_increase_20_normal = this.checked; updateProgress(); forceUpdateSummary();">
+                            <input type="checkbox" name="baseline_increase_20_normal" value="yes" onchange="formData.baseline_increase_20_normal = this.checked; updateProgress(); forceUpdateSummary(); toggleSleepCycleQuestion();">
                             Tăng ≥ 20 bpm so với băng ghi trước đó
                         </label>
+                    </div>
+                    <div id="sleep_cycle_sub" class="hidden">
+                        <!-- Sleep cycle question sẽ được thêm vào đây -->
                     </div>
                 </div>
             `;
@@ -1989,7 +2072,7 @@
             // Nhóm III: Các tiêu chí nghiêm trọng
             const hasAbsentVariability = variability === 'undetectable';
             const hasSinusoidal = variability === 'sinusoidal';
-            const hasBradycardia = baseline === '<80' || baseline === '80-100';
+            const hasBradycardia = baseline === '<80' || baseline === '80-100' || baseline === '100-109'; // Cập nhật: < 110 bpm
             const hasRecurrentLate = decelerations.includes('late') && formData.late_repetitive === 'yes';
             const hasRecurrentVariable = decelerations.includes('variable') && formData.variable_repetitive === 'yes';
             
@@ -1999,7 +2082,7 @@
                 classification = 'NHÓM III';
                 color = 'abnormal';
                 if (hasAbsentVariability && hasBradycardia) {
-                    reasoningDetails.push('Không có dao động nội tại + tim thai < 110 bpm = Nhóm III');
+                    reasoningDetails.push('Không có dao động nội tại + tim thai < 110 bpm (nhịp chậm) = Nhóm III');
                 } else if (hasAbsentVariability && (hasRecurrentLate || hasRecurrentVariable)) {
                     reasoningDetails.push('Không có dao động nội tại + nhịp giảm lặp lại = Nhóm III');
                 } else if (hasSinusoidal) {
@@ -2016,6 +2099,11 @@
                 color = 'suspicious';
                 reasoningDetails.push('Không đạt tiêu chí Nhóm I và không có dấu hiệu Nhóm III = Nhóm II');
                 reasoningDetails.push('Nhóm II: Cần theo dõi sát, đánh giá thêm');
+                
+                // Thêm chi tiết cho Nhóm II
+                if (hasBradycardia) {
+                    reasoningDetails.push('• Tim thai < 110 bpm (nhịp chậm) - theo dõi sát');
+                }
             }
             
             return {
@@ -2677,5 +2765,3 @@
     </script>
 </body>
 </html>
-
-
