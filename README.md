@@ -1,2 +1,3 @@
 # CTG-full-package
-https://docs.google.com/spreadsheets/d/1-Kpxook7fHKuYFgq1YxkWmtfc3j1w6kbXAb8WQWHz1E/edit?gid=0#gid=0
+Data: https://docs.google.com/spreadsheets/d/1-Kpxook7fHKuYFgq1YxkWmtfc3j1w6kbXAb8WQWHz1E/edit?gid=0#gid=0
+Script google: https://script.google.com/macros/s/AKfycbxpTOT6L_OXv3Xp_cRLnc9NvVjGqPGf3VuCAu8u6U41RRXEU3-ASv24uBL5LnFSad6E/exec
